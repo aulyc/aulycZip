@@ -67,6 +67,15 @@ class ReleaseToolTests(unittest.TestCase):
         self.assertIn("xcrun notarytool submit", formal)
         self.assertIn("xcrun stapler validate", formal)
 
+    def test_dual_mirror_wrapper_scopes_project_argument(self):
+        script = (PROJECT_ROOT / "scripts" / "dual-mirror-release.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("prepare|gitee-auth-check)", script)
+        self.assertIn('python3 "$TOOL" "$PHASE" --project aulyczip "$@"', script)
+        self.assertIn("preflight|publish|verify)", script)
+        self.assertIn('python3 "$TOOL" "$PHASE" "$@"', script)
+
     def make_provenance(self, root: Path) -> Path:
         artifact_name = "aulycZip-1.0.0-build.2-formal-macos-arm64.dmg"
         artifact = root / artifact_name

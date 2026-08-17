@@ -312,10 +312,6 @@
       "sha256": "19276f74448493d1f6b74195fff76961d21e96519a2cdca34ab6022306614662"
     },
     {
-      "path": "Config/Info.plist",
-      "sha256": "585e89bdcaaa76b9e1994fe8e7d7e0bfa136e0802516e20974955f145ce52977"
-    },
-    {
       "path": "Makefile",
       "sha256": "19313895de33c7af3afc02c27047f2a062b6b55bd14c5dc59a33962359bf009b"
     },
@@ -337,7 +333,7 @@
     },
     {
       "path": "Tests/test_release_tool.py",
-      "sha256": "f7362f7b2ade66ed028f788b5d5d67b93b4e8703865c62b1f372c70b153ebf68"
+      "sha256": "a5f67ebcb815f66972b7bf6f6a155f9445a9943df698ad90ce4c48f8132a231f"
     },
     {
       "path": "docs/DUAL_MIRROR_RELEASE.md",
@@ -361,7 +357,7 @@
     },
     {
       "path": "scripts/dual-mirror-release.sh",
-      "sha256": "73fe1901522ef025800c96ed6d2d47977c7e7830f5c77febbacaaf499d1c9225"
+      "sha256": "0346bfc71d826b373181430a8001a40568c30cbba07ef6b7e0a505816ca2fad7"
     },
     {
       "path": "scripts/formal-release.sh",
