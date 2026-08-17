@@ -50,3 +50,13 @@ WinZip AES 加密文件内容，不隐藏 ZIP 中的文件名和目录名。任�
 ## 兼容性证据
 
 自动化测试覆盖内部往返、错误密码、内容篡改与路径安全。可选外部测试会让 7-Zip 解开 aulycZip 生成的 AES-256 ZIP，并让 aulycZip 反向解开 7-Zip 生成的 AES-256 ZIP。
+
+## 在线升级
+
+- 只接受中央 `dual-mirror-latest:2` 正式版清单及固定 GitHub、Gitee URL
+- 两个来源都按相同顺序验证不可变 provenance 和安装包 SHA-256
+- 安装前验证稳定版本、build、Commit、标签、Bundle ID、Team ID、最低系统版本和 arm64
+- DMG 必须通过 Developer ID、Hardened Runtime、公证票据、staple 和 Gatekeeper 验证
+- 只有当前进程来自 `/Applications/aulycZip.app` 时才允许准备替换
+- 替换任务等待当前进程退出，使用固定目标和可恢复备份；失败时恢复旧应用
+- 更新日志只记录不敏感的阶段和稳定错误码，不记录 URL 凭据、Token 或用户数据

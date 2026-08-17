@@ -1,0 +1,403 @@
+{
+  "$schema": "urn:codex-engineering-standards:project-adoption:1",
+  "applicability": "applicable",
+  "artifacts": [
+    {
+      "id": "aulyczip-macos-app",
+      "operations": {
+        "formalRelease": "release-only",
+        "formalReleaseInstall": "release-and-live-target",
+        "testRelease": "not-supported",
+        "testReleaseInstall": "not-supported"
+      },
+      "profile": "macos-arm64-app",
+      "profileVersion": "2.0.0",
+      "type": "macos-arm64-app"
+    }
+  ],
+  "coreVersion": "3.1.0",
+  "exceptions": [],
+  "projectId": "aulyczip",
+  "releasePolicies": [
+    {
+      "id": "aulyc-dual-mirror-v1",
+      "version": "1.7.0"
+    }
+  ],
+  "releaseSignals": {
+    "ciPaths": [
+      ".github/workflows/ci.yml",
+      "Tests/aulycZipAppSupportTests/UpdateContractTests.swift",
+      "Tests/test_release_tool.py",
+      "scripts/compile-check.sh"
+    ],
+    "releaseFiles": [
+      ".codex/standards.json",
+      ".github/workflows/ci.yml",
+      "AGENTS.md",
+      "CHANGELOG.md",
+      "CHANGELOG.zh-CN.md",
+      "Config/Info.plist",
+      "Makefile",
+      "Package.swift",
+      "Sources/aulycZip/UpdateController.swift",
+      "Sources/aulycZipAppSupport/UpdateInstaller.swift",
+      "Sources/aulycZipAppSupport/UpdateManifest.swift",
+      "Tests/aulycZipAppSupportTests/UpdateContractTests.swift",
+      "Tests/test_release_tool.py",
+      "docs/DUAL_MIRROR_RELEASE.md",
+      "docs/RELEASE.md",
+      "scripts/bundle.sh",
+      "scripts/compile-check.sh",
+      "scripts/create-release-tag.sh",
+      "scripts/dual-mirror-release.sh",
+      "scripts/formal-release.sh",
+      "scripts/install-release.sh",
+      "scripts/prepare-formal-release.sh",
+      "scripts/publish-release.sh",
+      "scripts/publish-update-mirrors.sh",
+      "scripts/release-check.sh",
+      "scripts/release_tool.py",
+      "scripts/verify-artifact.sh",
+      "scripts/verify-installed.sh"
+    ],
+    "versionSources": [
+      "Config/Info.plist"
+    ]
+  },
+  "ruleBindings": [
+    {
+      "evidence": [
+        "AGENTS.md#versioning-and-release-profile"
+      ],
+      "ruleId": "REL-001"
+    },
+    {
+      "evidence": [
+        "Config/Info.plist",
+        "scripts/release_tool.py"
+      ],
+      "ruleId": "REL-002"
+    },
+    {
+      "evidence": [
+        "docs/RELEASE.md"
+      ],
+      "ruleId": "REL-003"
+    },
+    {
+      "evidence": [
+        "docs/RELEASE.md"
+      ],
+      "ruleId": "REL-004"
+    },
+    {
+      "evidence": [
+        "scripts/prepare-formal-release.sh",
+        "docs/RELEASE.md"
+      ],
+      "ruleId": "REL-005"
+    },
+    {
+      "evidence": [
+        "scripts/release-check.sh",
+        "scripts/bundle.sh"
+      ],
+      "ruleId": "REL-006"
+    },
+    {
+      "evidence": [
+        "scripts/formal-release.sh"
+      ],
+      "ruleId": "REL-007"
+    },
+    {
+      "evidence": [
+        "scripts/release_tool.py"
+      ],
+      "ruleId": "REL-008"
+    },
+    {
+      "evidence": [
+        "scripts/formal-release.sh",
+        "scripts/release_tool.py"
+      ],
+      "ruleId": "REL-009"
+    },
+    {
+      "evidence": [
+        "scripts/release_tool.py",
+        "scripts/verify-artifact.sh"
+      ],
+      "ruleId": "REL-010"
+    },
+    {
+      "evidence": [
+        "docs/SECURITY.md",
+        "scripts/release_tool.py"
+      ],
+      "ruleId": "REL-011"
+    },
+    {
+      "evidence": [
+        "AGENTS.md#versioning-and-release-profile"
+      ],
+      "ruleId": "REL-012"
+    },
+    {
+      "evidence": [
+        "Makefile"
+      ],
+      "ruleId": "REL-013"
+    },
+    {
+      "evidence": [
+        "scripts/prepare-formal-release.sh",
+        "scripts/publish-release.sh"
+      ],
+      "ruleId": "REL-014"
+    },
+    {
+      "evidence": [
+        "AGENTS.md#dual-mirror-release-policy",
+        "docs/DUAL_MIRROR_RELEASE.md"
+      ],
+      "ruleId": "REL-015"
+    },
+    {
+      "evidence": [
+        "docs/RELEASE.md",
+        "scripts/install-release.sh"
+      ],
+      "ruleId": "REL-016"
+    },
+    {
+      "evidence": [
+        "docs/DUAL_MIRROR_RELEASE.md"
+      ],
+      "ruleId": "REL-017"
+    },
+    {
+      "evidence": [
+        "AGENTS.md#versioning-and-release-profile",
+        "Package.swift"
+      ],
+      "ruleId": "MAC-001"
+    },
+    {
+      "evidence": [
+        "Config/Info.plist",
+        "scripts/release_tool.py"
+      ],
+      "ruleId": "MAC-002"
+    },
+    {
+      "evidence": [
+        "scripts/release-check.sh",
+        "scripts/bundle.sh"
+      ],
+      "ruleId": "MAC-003"
+    },
+    {
+      "evidence": [
+        "scripts/formal-release.sh",
+        "scripts/release_tool.py"
+      ],
+      "ruleId": "MAC-004"
+    },
+    {
+      "evidence": [
+        "scripts/release_tool.py"
+      ],
+      "ruleId": "MAC-005"
+    },
+    {
+      "evidence": [
+        "scripts/install-release.sh",
+        "scripts/verify-installed.sh"
+      ],
+      "ruleId": "MAC-006"
+    },
+    {
+      "evidence": [
+        "scripts/verify-artifact.sh",
+        "scripts/release_tool.py"
+      ],
+      "ruleId": "MAC-007"
+    },
+    {
+      "evidence": [
+        "docs/DUAL_MIRROR_RELEASE.md"
+      ],
+      "ruleId": "DMR-001"
+    },
+    {
+      "evidence": [
+        "docs/DUAL_MIRROR_RELEASE.md",
+        "scripts/publish-update-mirrors.sh"
+      ],
+      "ruleId": "DMR-002"
+    },
+    {
+      "evidence": [
+        "Sources/aulycZipAppSupport/UpdateManifest.swift",
+        "Sources/aulycZipAppSupport/UpdateInstaller.swift"
+      ],
+      "ruleId": "DMR-003"
+    },
+    {
+      "evidence": [
+        "CHANGELOG.md",
+        "CHANGELOG.zh-CN.md",
+        "scripts/publish-update-mirrors.sh"
+      ],
+      "ruleId": "DMR-004"
+    },
+    {
+      "evidence": [
+        "docs/DUAL_MIRROR_RELEASE.md",
+        "scripts/dual-mirror-release.sh"
+      ],
+      "ruleId": "DMR-005"
+    },
+    {
+      "evidence": [
+        "scripts/publish-update-mirrors.sh",
+        "docs/DUAL_MIRROR_RELEASE.md"
+      ],
+      "ruleId": "DMR-006"
+    },
+    {
+      "evidence": [
+        "AGENTS.md#dual-mirror-release-policy",
+        "scripts/dual-mirror-release.sh"
+      ],
+      "ruleId": "DMR-007"
+    },
+    {
+      "evidence": [
+        "docs/RELEASE.md",
+        "scripts/publish-release.sh"
+      ],
+      "ruleId": "DMR-008"
+    },
+    {
+      "evidence": [
+        "docs/DUAL_MIRROR_RELEASE.md"
+      ],
+      "ruleId": "DMR-009"
+    },
+    {
+      "evidence": [
+        "docs/DUAL_MIRROR_RELEASE.md"
+      ],
+      "ruleId": "DMR-010"
+    },
+    {
+      "evidence": [
+        "docs/DUAL_MIRROR_RELEASE.md",
+        "Sources/aulycZipAppSupport/UpdateManifest.swift"
+      ],
+      "ruleId": "DMR-011"
+    }
+  ],
+  "schemaVersion": 1,
+  "trackedFiles": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "b93e3004bb4f6a4ab33c96ce70d45cdd26dcb0bc0c244b5faab433e6990b8f2d"
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "19276f74448493d1f6b74195fff76961d21e96519a2cdca34ab6022306614662"
+    },
+    {
+      "path": "Config/Info.plist",
+      "sha256": "585e89bdcaaa76b9e1994fe8e7d7e0bfa136e0802516e20974955f145ce52977"
+    },
+    {
+      "path": "Makefile",
+      "sha256": "19313895de33c7af3afc02c27047f2a062b6b55bd14c5dc59a33962359bf009b"
+    },
+    {
+      "path": "Sources/aulycZip/UpdateController.swift",
+      "sha256": "fc22d3f49fb5e88dc20e548539f2eb8c8f1cbace800977c19d440f487cfb0e10"
+    },
+    {
+      "path": "Sources/aulycZipAppSupport/UpdateInstaller.swift",
+      "sha256": "00743fb28415c3eb18c78222f1a2e2f6ba1575710f54aed852e42493f461ac84"
+    },
+    {
+      "path": "Sources/aulycZipAppSupport/UpdateManifest.swift",
+      "sha256": "c6ec21c146d06fc3aef70bac8cbc0d6052b86f0b751ccfe41bc648a1866eee82"
+    },
+    {
+      "path": "Tests/aulycZipAppSupportTests/UpdateContractTests.swift",
+      "sha256": "57b9e65d74f6f1471276128180cab93f20832ff6acaf17db329aa4d3ab30aede"
+    },
+    {
+      "path": "Tests/test_release_tool.py",
+      "sha256": "f7362f7b2ade66ed028f788b5d5d67b93b4e8703865c62b1f372c70b153ebf68"
+    },
+    {
+      "path": "docs/DUAL_MIRROR_RELEASE.md",
+      "sha256": "e4a182eb786cffc9a4ef39b069b1e866d16d0ddaf085668190c0f89bba5e4acb"
+    },
+    {
+      "path": "docs/RELEASE.md",
+      "sha256": "8f454d6fc63864538dab254bf416dbef4cd3c5bc7d609aaccb4a3360cc72e7e9"
+    },
+    {
+      "path": "scripts/bundle.sh",
+      "sha256": "ad1f0f49862c9e6e07061baf92eac662227fcad4ff49385cf5bd1e164200f6c8"
+    },
+    {
+      "path": "scripts/compile-check.sh",
+      "sha256": "eba9807c2ff543ffe59e754a8d97e4079ccf7c16b079bd3646b6dfe8b4067691"
+    },
+    {
+      "path": "scripts/create-release-tag.sh",
+      "sha256": "87d7b849b312e16c683dc2decae4f7986447534866495c6d893ddb651bd5b12c"
+    },
+    {
+      "path": "scripts/dual-mirror-release.sh",
+      "sha256": "73fe1901522ef025800c96ed6d2d47977c7e7830f5c77febbacaaf499d1c9225"
+    },
+    {
+      "path": "scripts/formal-release.sh",
+      "sha256": "683033d925796b678472b85d163ba7f75b948306aa29ec98acd8bfb1bfcf2ab4"
+    },
+    {
+      "path": "scripts/install-release.sh",
+      "sha256": "1209fdc6e97105bb992f2dec09a8a472274b2a01b1c572c1b7883275a5a9cdae"
+    },
+    {
+      "path": "scripts/prepare-formal-release.sh",
+      "sha256": "04719b229bd884389a7fd661dc7cd98d71acabc6c5b76b737cf4b2726d30f302"
+    },
+    {
+      "path": "scripts/publish-release.sh",
+      "sha256": "6478994c10dfa7985c5c2bd82b6bad7ec216e4631c203347341dc6ba499b954b"
+    },
+    {
+      "path": "scripts/publish-update-mirrors.sh",
+      "sha256": "6e27b34ed91aba6f42b7e5c7746107b25151e45128c5467b56b7efb8fcc6f22f"
+    },
+    {
+      "path": "scripts/release-check.sh",
+      "sha256": "d2d1058b990cce75a431e2116887c937ba8a448593df8a20efe1f287a1d59052"
+    },
+    {
+      "path": "scripts/release_tool.py",
+      "sha256": "59fb8e23cb8c8ddc09c6756e89ce7b6468be6071e46ce80941c0fa7138fab71d"
+    },
+    {
+      "path": "scripts/verify-artifact.sh",
+      "sha256": "9d186e5d44bb787399808a5e7ac8452a3c311eafe469e2b83a0c5c1204a04c37"
+    },
+    {
+      "path": "scripts/verify-installed.sh",
+      "sha256": "dea4cbc344404bf5e3ea3bb3ac95a096fd96ded07fccaabe56b53f6fb00f1f11"
+    }
+  ]
+}

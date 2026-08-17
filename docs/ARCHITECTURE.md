@@ -10,8 +10,15 @@
 - `FinderArchiveRequest` 校验右键选择并生成不覆盖现有文件的输出路径
 - `PasswordPrompt` 只在内存中接收密码，不保存、不记录
 - `OperationProgressPanelController` 提供非阻塞进度面板
+- `UpdateController` 编排自动/手动检查、用户提示、下载和退出前安装准备
+- `UpdateManifest` 固定 Schema v2、产品身份、镜像顺序和可信 URL
+- `UpdateInstaller` 验证 provenance、DMG、签名、公证和 App 身份，并生成受限替换任务
 
 应用使用 `LSUIElement`，没有常驻 Dock 图标或主窗口。
+
+更新清单和安装器位于 `aulycZipAppSupport`，便于在不依赖 AppKit 界面的测试中验证
+Schema、镜像顺序、SHA-256、provenance 和替换路径；提示与进度窗口留在 AppKit
+应用目标中。
 
 ## ZIP 核心
 

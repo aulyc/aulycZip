@@ -10,6 +10,8 @@ aulycZip 是一个原生 macOS 菜单栏 ZIP 工具，界面使用 AppKit 编写
 - 与 WinZip、7-Zip、Keka 使用的 WinZip AES ZIP 格式互操作
 - 在写出文件前验证密码与认证码
 - 阻止路径穿越、符号链接逃逸和超限解压
+- 每日自动检查正式更新，也可从菜单栏手动“检查更新…”
+- 更新源固定 GitHub 优先、Gitee 回退，安装前验证 SHA-256、发布溯源、签名与公证
 - 在“关于 aulycZip”中查看版本、系统要求、产品说明、官网与致谢
 
 ## 使用
@@ -38,6 +40,10 @@ open .cache/build/aulycZip.app
 ```bash
 make check
 ```
+
+正式版安装在 `/Applications/aulycZip.app` 时，可以直接在菜单栏完成在线升级。开发
+构建和从其他目录运行的副本只检查新版本，不会自动覆盖应用；这种情况下可打开
+GitHub 发布页手动下载。
 
 外部 7-Zip 双向兼容测试默认不依赖本机安装。需要运行时显式提供测试工具路径：
 

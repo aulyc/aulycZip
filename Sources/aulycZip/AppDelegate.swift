@@ -6,15 +6,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusBarController: StatusBarController?
     private var workflowController: ArchiveWorkflowController?
     private var finderServiceProvider: FinderServiceProvider?
+    private var updateController: UpdateController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let workflow = ArchiveWorkflowController()
+        let updater = UpdateController()
         workflowController = workflow
+        updateController = updater
         statusBarController = StatusBarController(
             onCreateEncrypted: { [weak workflow] in workflow?.createEncryptedArchive() },
             onExtract: { [weak workflow] in workflow?.extractArchive() },
             onShowHelp: { [weak workflow] in workflow?.showHelp() },
-            onShowAbout: { [weak workflow] in workflow?.showAbout() }
+            onShowAbout: { [weak workflow] in workflow?.showAbout() },
+            onCheckForUpdates: { [weak updater] in updater?.checkManually() }
         )
 
         let serviceProvider = FinderServiceProvider { [weak workflow] urls in
@@ -25,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         finderServiceProvider = serviceProvider
         NSApp.servicesProvider = serviceProvider
         NSUpdateDynamicServices()
+        updater.scheduleAutomaticCheckIfDue()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
