@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <g id="aulyczip-icon-mark" fill="none" stroke="#000000" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M410 421 C450 392 545 385 662 411 C611 469 532 526 431 590 C394 614 378 638 395 657 C418 686 512 640 609 654 C622 656 633 664 641 676" transform="translate(-78 -79) scale(1.15)" stroke-width="50"/>
+    <path d="M392 536 C462 526 552 526 638 535" transform="rotate(10 515 531)" stroke-width="58"/>
+  </g>
+</svg>
