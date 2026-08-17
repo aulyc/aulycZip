@@ -664,7 +664,7 @@ private final class GeneratedPasswordDialog: NSObject {
 
     init(password: String) {
         panel = NSPanel(
-            contentRect: NSRect(origin: .zero, size: NSSize(width: 440, height: 242)),
+            contentRect: NSRect(origin: .zero, size: NSSize(width: 380, height: 242)),
             styleMask: [.titled, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -734,8 +734,24 @@ private final class GeneratedPasswordDialog: NSObject {
         buttons.orientation = .horizontal
         buttons.alignment = .centerY
         buttons.spacing = 8
+        buttons.translatesAutoresizingMaskIntoConstraints = false
 
-        let stack = NSStackView(views: [header, message, generatedField, copyCheckbox, buttons])
+        let buttonContainer = NSView()
+        buttonContainer.translatesAutoresizingMaskIntoConstraints = false
+        buttonContainer.addSubview(buttons)
+        NSLayoutConstraint.activate([
+            buttons.centerXAnchor.constraint(equalTo: buttonContainer.centerXAnchor),
+            buttons.topAnchor.constraint(equalTo: buttonContainer.topAnchor),
+            buttons.bottomAnchor.constraint(equalTo: buttonContainer.bottomAnchor),
+        ])
+
+        let stack = NSStackView(views: [
+            header,
+            message,
+            generatedField,
+            copyCheckbox,
+            buttonContainer,
+        ])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 10
@@ -750,11 +766,11 @@ private final class GeneratedPasswordDialog: NSObject {
             stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 18),
             stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
-            header.widthAnchor.constraint(equalToConstant: 400),
-            message.widthAnchor.constraint(equalToConstant: 400),
-            generatedField.widthAnchor.constraint(equalToConstant: 400),
+            header.widthAnchor.constraint(equalToConstant: 340),
+            message.widthAnchor.constraint(equalToConstant: 340),
+            generatedField.widthAnchor.constraint(equalToConstant: 340),
             generatedField.heightAnchor.constraint(equalToConstant: 28),
-            buttons.centerXAnchor.constraint(equalTo: stack.centerXAnchor),
+            buttonContainer.widthAnchor.constraint(equalToConstant: 340),
             cancelButton.widthAnchor.constraint(equalToConstant: 110),
             confirmButton.widthAnchor.constraint(equalToConstant: 110),
             cancelButton.heightAnchor.constraint(equalToConstant: 32),
