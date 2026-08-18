@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-18
+
 ### Added
 
 - Build the initial native AppKit menu-bar application for creating WinZip AES-256 encrypted ZIP files and extracting compatible ZIP archives

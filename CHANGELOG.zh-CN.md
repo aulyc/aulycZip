@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-18
+
 ### 新增
 
 - 完成首个原生 AppKit 菜单栏应用，支持创建 WinZip AES-256 加密 ZIP 和解压兼容 ZIP
