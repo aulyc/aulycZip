@@ -1,0 +1,45 @@
+{
+  "$schema": "urn:codex-engineering-standards:dual-mirror-latest:2",
+  "architecture": "arm64",
+  "artifact": {
+    "downloads": [
+      {
+        "source": "github",
+        "url": "https://github.com/aulyc/aulycZip/releases/download/1.0.0/aulycZip-1.0.0-build.3-formal-macos-arm64.dmg"
+      },
+      {
+        "source": "gitee",
+        "url": "https://gitee.com/aulyc/aulycZip/releases/download/1.0.0/aulycZip-1.0.0-build.3-formal-macos-arm64.dmg"
+      }
+    ],
+    "file": "aulycZip-1.0.0-build.3-formal-macos-arm64.dmg",
+    "sha256": "3d249e66bd890695b278273728b49a10f4c7acdfee6962ce18733c01ad57bf63"
+  },
+  "buildNumber": 3,
+  "bundleIdentifier": "com.aulyc.aulyczip",
+  "commit": "d3790bf87766028a91336861ffd641b7bbf778e3",
+  "minimumSystemVersion": "14.0",
+  "pluginIdentifier": null,
+  "policy": "aulyc-dual-mirror-v1",
+  "provenance": {
+    "downloads": [
+      {
+        "source": "github",
+        "url": "https://raw.githubusercontent.com/aulyc/aulycZip/release-channel/updates/1.0.0/aulycZip-1.0.0-build.3-formal-macos-arm64.release-provenance.json"
+      },
+      {
+        "source": "gitee",
+        "url": "https://gitee.com/aulyc/aulycZip/raw/main/updates/1.0.0/aulycZip-1.0.0-build.3-formal-macos-arm64.release-provenance.json"
+      }
+    ],
+    "file": "aulycZip-1.0.0-build.3-formal-macos-arm64.release-provenance.json",
+    "sha256": "005f0e21f1d57c923906d2e9dbb94049bb361ea9464ffd6731f8892f7ef26f69"
+  },
+  "releaseChannel": "formal",
+  "releasePageURL": "https://github.com/aulyc/aulycZip/releases/tag/1.0.0",
+  "releaseProfile": "macos-arm64-app",
+  "schemaVersion": 2,
+  "tag": "1.0.0",
+  "teamIdentifier": "M9M7M2ARFD",
+  "version": "1.0.0"
+}
