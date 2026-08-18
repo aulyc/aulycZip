@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import plistlib
 import tempfile
 import unittest
 from pathlib import Path
@@ -16,7 +17,13 @@ SPEC.loader.exec_module(release_tool)
 
 class ReleaseToolTests(unittest.TestCase):
     def test_version_source_is_current_project_plist(self):
-        self.assertEqual(release_tool.version_identity(), ("0.1.0", 1))
+        with (PROJECT_ROOT / "Config" / "Info.plist").open("rb") as handle:
+            plist = plistlib.load(handle)
+        expected = (
+            plist["CFBundleShortVersionString"],
+            int(plist["CFBundleVersion"]),
+        )
+        self.assertEqual(release_tool.version_identity(), expected)
 
     def test_stable_version_parser_rejects_prerelease(self):
         self.assertEqual(release_tool.version_tuple("1.2.3"), (1, 2, 3))

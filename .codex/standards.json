@@ -333,7 +333,7 @@
     },
     {
       "path": "Tests/test_release_tool.py",
-      "sha256": "a5f67ebcb815f66972b7bf6f6a155f9445a9943df698ad90ce4c48f8132a231f"
+      "sha256": "1ffe1fcdf8afb01dad2a93c8950ea6654035285a3f98c3cb791c866f6671d614"
     },
     {
       "path": "docs/DUAL_MIRROR_RELEASE.md",
