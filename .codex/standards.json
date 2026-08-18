@@ -309,7 +309,7 @@
     },
     {
       "path": "AGENTS.md",
-      "sha256": "19276f74448493d1f6b74195fff76961d21e96519a2cdca34ab6022306614662"
+      "sha256": "0e286bd904c31c4a610f29c52a1469f372abbe40dfef5c73bd1b9c455eff4fcb"
     },
     {
       "path": "Makefile",
@@ -317,19 +317,19 @@
     },
     {
       "path": "Sources/aulycZip/UpdateController.swift",
-      "sha256": "fc22d3f49fb5e88dc20e548539f2eb8c8f1cbace800977c19d440f487cfb0e10"
+      "sha256": "969b92fef59af9b93465433da6718fd62f943cb0ce5a4fde87488ff21a9d3ccf"
     },
     {
       "path": "Sources/aulycZipAppSupport/UpdateInstaller.swift",
-      "sha256": "00743fb28415c3eb18c78222f1a2e2f6ba1575710f54aed852e42493f461ac84"
+      "sha256": "e36e6274f91da35315915467c6c22151524acdf95827faf5651067c3ecbda191"
     },
     {
       "path": "Sources/aulycZipAppSupport/UpdateManifest.swift",
-      "sha256": "c6ec21c146d06fc3aef70bac8cbc0d6052b86f0b751ccfe41bc648a1866eee82"
+      "sha256": "c3902d0d9e22d89efa36d815f84401a2ff03d3739c11078a9b68737aebc352c3"
     },
     {
       "path": "Tests/aulycZipAppSupportTests/UpdateContractTests.swift",
-      "sha256": "57b9e65d74f6f1471276128180cab93f20832ff6acaf17db329aa4d3ab30aede"
+      "sha256": "690d1c3618c678f034b9603f8c603a6fbead0dce7638bed6b366d981658fc433"
     },
     {
       "path": "Tests/test_release_tool.py",

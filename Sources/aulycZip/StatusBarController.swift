@@ -6,20 +6,17 @@ final class StatusBarController: NSObject {
     private let statusItem: NSStatusItem
     private let onCreateEncrypted: () -> Void
     private let onExtract: () -> Void
-    private let onShowHelp: () -> Void
     private let onShowAbout: () -> Void
     private let onCheckForUpdates: () -> Void
 
     init(
         onCreateEncrypted: @escaping () -> Void,
         onExtract: @escaping () -> Void,
-        onShowHelp: @escaping () -> Void,
         onShowAbout: @escaping () -> Void,
         onCheckForUpdates: @escaping () -> Void
     ) {
         self.onCreateEncrypted = onCreateEncrypted
         self.onExtract = onExtract
-        self.onShowHelp = onShowHelp
         self.onShowAbout = onShowAbout
         self.onCheckForUpdates = onCheckForUpdates
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -50,11 +47,6 @@ final class StatusBarController: NSObject {
             ))
         }
         menu.addItem(.separator())
-        menu.addItem(item(
-            title: "使用说明",
-            action: #selector(showHelp),
-            systemImage: "questionmark.circle"
-        ))
         menu.addItem(item(
             title: "关于 aulycZip",
             action: #selector(showAbout),
@@ -117,7 +109,6 @@ final class StatusBarController: NSObject {
 
     @objc private func createEncrypted() { onCreateEncrypted() }
     @objc private func extract() { onExtract() }
-    @objc private func showHelp() { onShowHelp() }
     @objc private func showAbout() { onShowAbout() }
     @objc private func checkForUpdates() { onCheckForUpdates() }
 }

@@ -10,12 +10,13 @@ final class UpdateController {
     )
 
     private let manifestLoader: UpdateManifestLoader
+    private let operationCoordinator: AppOperationCoordinator
     private let progressPanel = UpdateProgressPanelController()
     private let lastCheckKey = "aulycZip.lastUpdateCheckAt"
     private var isBusy = false
-    private var latestManifest: UpdateManifest?
 
-    init() {
+    init(operationCoordinator: AppOperationCoordinator) {
+        self.operationCoordinator = operationCoordinator
         let version = Bundle.main.object(
             forInfoDictionaryKey: "CFBundleShortVersionString"
         ) as? String ?? "0.0.0"
@@ -89,7 +90,6 @@ final class UpdateController {
                         thanVersion: self.currentVersion,
                         buildNumber: self.currentBuildNumber
                     ) else {
-                        self.latestManifest = nil
                         if manual {
                             self.showMessage(
                                 title: "已是最新版本",
@@ -99,7 +99,6 @@ final class UpdateController {
                         return
                     }
 
-                    self.latestManifest = manifest
                     self.presentAvailableUpdate(manifest)
                 }
             }
@@ -133,6 +132,13 @@ final class UpdateController {
             return
         }
         guard !isBusy else { return }
+        guard operationCoordinator.begin(.updateReplacement) else {
+            showMessage(
+                title: "暂时无法安装更新",
+                message: "请等待当前压缩或解压任务完成后再安装更新。"
+            )
+            return
+        }
         isBusy = true
         UpdateInstaller.cleanStaleArtifacts()
         progressPanel.show(message: "正在验证发布信息")
@@ -233,6 +239,7 @@ final class UpdateController {
 
     private func finishWithFailure(stage: String, error: Error, releasePageURL: URL) {
         isBusy = false
+        operationCoordinator.end(.updateReplacement)
         progressPanel.close()
         Self.logFailure(stage: stage, error: error)
         showInstallFailure(error, releasePageURL: releasePageURL)

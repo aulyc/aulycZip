@@ -9,14 +9,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var updateController: UpdateController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let workflow = ArchiveWorkflowController()
-        let updater = UpdateController()
+        let operationCoordinator = AppOperationCoordinator()
+        let workflow = ArchiveWorkflowController(operationCoordinator: operationCoordinator)
+        let updater = UpdateController(operationCoordinator: operationCoordinator)
         workflowController = workflow
         updateController = updater
         statusBarController = StatusBarController(
             onCreateEncrypted: { [weak workflow] in workflow?.createEncryptedArchive() },
             onExtract: { [weak workflow] in workflow?.extractArchive() },
-            onShowHelp: { [weak workflow] in workflow?.showHelp() },
             onShowAbout: { [weak workflow] in workflow?.showAbout() },
             onCheckForUpdates: { [weak updater] in updater?.checkManually() }
         )

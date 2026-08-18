@@ -125,13 +125,14 @@ struct ZipArchiveIntegrationTests {
 
             let record = try #require(try ZipArchiveReader(data: Data(contentsOf: fixture.archive)).records.first)
             var bytes = try Data(contentsOf: fixture.archive)
-            let encryptedByte = record.dataOffset + 16 + 2
+            let encryptedByte = Int(record.dataOffset) + 16 + 2
             bytes[encryptedByte] ^= 0x01
             try bytes.write(to: fixture.archive)
 
             #expect(throws: ZipError.authenticationFailed) {
                 try ZipArchive.extract(fixture.archive, to: fixture.output, password: "right-password")
             }
+            #expect(!FileManager.default.fileExists(atPath: fixture.output.path))
         }
     }
 
@@ -211,6 +212,414 @@ struct ZipArchiveIntegrationTests {
             }
         }
     }
+
+    @Test("forced ZIP64 plain archive can be listed and extracted")
+    func zip64PlainRoundTrip() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("zip64.txt")
+            let original = Data(String(repeating: "ZIP64-stream-", count: 5_000).utf8)
+            try original.write(to: source)
+
+            try ZipArchiveWriter.create(
+                at: fixture.archive,
+                contentsOf: [source],
+                encryption: .none,
+                options: ZipArchiveWriterOptions(forceZIP64: true)
+            )
+
+            let bytes = try Data(contentsOf: fixture.archive)
+            #expect(bytes.containsSignature(0x0606_4B50))
+            #expect(bytes.containsSignature(0x0706_4B50))
+            #expect(try ZipArchive.list(fixture.archive).first?.uncompressedSize == UInt64(original.count))
+
+            try ZipArchive.extract(fixture.archive, to: fixture.output)
+            #expect(try Data(contentsOf: fixture.output.appendingPathComponent("zip64.txt")) == original)
+        }
+    }
+
+    @Test("forced ZIP64 WinZip AES archive follows the same authentication path")
+    func zip64AESRoundTrip() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("zip64-secret.txt")
+            let original = Data(String(repeating: "authenticated-", count: 8_000).utf8)
+            try original.write(to: source)
+
+            try ZipArchiveWriter.create(
+                at: fixture.archive,
+                contentsOf: [source],
+                encryption: .winZipAES256(password: "zip64-password"),
+                options: ZipArchiveWriterOptions(forceZIP64: true)
+            )
+            try ZipArchive.extract(
+                fixture.archive,
+                to: fixture.output,
+                password: "zip64-password"
+            )
+
+            #expect(try Data(contentsOf: fixture.output.appendingPathComponent("zip64-secret.txt")) == original)
+        }
+    }
+
+    @Test("ordinary small archives stay in classic ZIP format")
+    func classicZIPRemainsClassic() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("classic.txt")
+            try Data("classic".utf8).write(to: source)
+            try ZipArchive.create(at: fixture.archive, contentsOf: [source], encryption: .none)
+
+            let bytes = try Data(contentsOf: fixture.archive)
+            #expect(!bytes.containsSignature(0x0606_4B50))
+            #expect(!bytes.containsSignature(0x0706_4B50))
+        }
+    }
+
+    @Test("ZIP64 locator declaring multiple disks is rejected")
+    func rejectsMultiDiskZIP64() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("multi.txt")
+            try Data("multi".utf8).write(to: source)
+            try ZipArchiveWriter.create(
+                at: fixture.archive,
+                contentsOf: [source],
+                encryption: .none,
+                options: ZipArchiveWriterOptions(forceZIP64: true)
+            )
+            var bytes = try Data(contentsOf: fixture.archive)
+            let locator = try #require(bytes.lastOffset(ofSignature: 0x0706_4B50))
+            bytes.replaceLittleEndian(UInt32(2), at: locator + 16)
+            try bytes.write(to: fixture.archive)
+
+            #expect(throws: ZipError.unsupportedFeature("Multi-disk ZIP archives are not supported")) {
+                _ = try ZipArchive.list(fixture.archive)
+            }
+        }
+    }
+
+    @Test("actual streamed output is limited and no final directory remains")
+    func actualOutputLimitIsTransactional() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("large.txt")
+            try Data(repeating: 0x41, count: 64 * 1024).write(to: source)
+            try ZipArchive.create(at: fixture.archive, contentsOf: [source], encryption: .none)
+            var bytes = try Data(contentsOf: fixture.archive)
+            let local = try #require(bytes.firstOffset(ofSignature: 0x0403_4B50))
+            let central = try #require(bytes.firstOffset(ofSignature: 0x0201_4B50))
+            bytes.replaceLittleEndian(UInt32(512), at: local + 22)
+            bytes.replaceLittleEndian(UInt32(512), at: central + 24)
+            try bytes.write(to: fixture.archive)
+
+            #expect(throws: ZipError.outputLimitExceeded) {
+                try ZipArchive.extract(
+                    fixture.archive,
+                    to: fixture.output,
+                    limits: ZipExtractionLimits(
+                        maximumEntryCount: 100,
+                        maximumEntryUncompressedSize: 1_024,
+                        maximumTotalUncompressedSize: 1_024
+                    )
+                )
+            }
+            #expect(!FileManager.default.fileExists(atPath: fixture.output.path))
+        }
+    }
+
+    @Test("case-insensitive path collisions are rejected before staging")
+    func rejectsCaseInsensitiveCollision() throws {
+        try withFixture { fixture in
+            let upper = fixture.source.appendingPathComponent("A.txt")
+            let other = fixture.source.appendingPathComponent("B.txt")
+            try Data("upper".utf8).write(to: upper)
+            try Data("lower".utf8).write(to: other)
+            try ZipArchive.create(at: fixture.archive, contentsOf: [upper, other], encryption: .none)
+            var bytes = try Data(contentsOf: fixture.archive)
+            replaceAll(Data("B.txt".utf8), with: Data("a.txt".utf8), in: &bytes)
+            try bytes.write(to: fixture.archive)
+
+            #expect(throws: ZipError.duplicateEntry("a.txt")) {
+                try ZipArchive.extract(fixture.archive, to: fixture.output)
+            }
+            #expect(!FileManager.default.fileExists(atPath: fixture.output.path))
+        }
+    }
+
+    @Test("ZIP64 sentinel fields require a valid locator")
+    func missingZIP64LocatorIsRejected() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("locator.txt")
+            try Data("locator".utf8).write(to: source)
+            try ZipArchiveWriter.create(
+                at: fixture.archive,
+                contentsOf: [source],
+                encryption: .none,
+                options: ZipArchiveWriterOptions(forceZIP64: true)
+            )
+            var bytes = try Data(contentsOf: fixture.archive)
+            let locator = try #require(bytes.lastOffset(ofSignature: 0x0706_4B50))
+            bytes.replaceLittleEndian(UInt32(0), at: locator)
+            try bytes.write(to: fixture.archive)
+
+            #expect(throws: ZipError.invalidArchive("ZIP64 locator was not found")) {
+                _ = try ZipArchive.list(fixture.archive)
+            }
+        }
+    }
+
+    @Test("ZIP64 local size sentinels require a matching extra field")
+    func missingLocalZIP64ExtraIsRejected() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("extra.txt")
+            try Data("extra".utf8).write(to: source)
+            try ZipArchiveWriter.create(
+                at: fixture.archive,
+                contentsOf: [source],
+                encryption: .none,
+                options: ZipArchiveWriterOptions(forceZIP64: true)
+            )
+            var bytes = try Data(contentsOf: fixture.archive)
+            let local = try #require(bytes.firstOffset(ofSignature: 0x0403_4B50))
+            var lengths = ByteCursor(data: bytes, offset: local + 26)
+            let nameLength = try lengths.readUInt16()
+            let extraOffset = local + 30 + Int(nameLength)
+            bytes.replaceLittleEndian(UInt16(0x0002), at: extraOffset)
+            try bytes.write(to: fixture.archive)
+
+            #expect(throws: ZipError.invalidArchive("ZIP64 extra field was not found")) {
+                _ = try ZipArchive.list(fixture.archive)
+            }
+        }
+    }
+
+    @Test("late CRC failure removes staging output and leaves no final directory")
+    func lateFailureIsTransactional() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("crc.txt")
+            try Data(String(repeating: "crc-payload", count: 1_000).utf8).write(to: source)
+            try ZipArchive.create(at: fixture.archive, contentsOf: [source], encryption: .none)
+
+            var bytes = try Data(contentsOf: fixture.archive)
+            let local = try #require(bytes.firstOffset(ofSignature: 0x0403_4B50))
+            let central = try #require(bytes.firstOffset(ofSignature: 0x0201_4B50))
+            bytes.replaceLittleEndian(UInt32(0xDEAD_BEEF), at: local + 14)
+            bytes.replaceLittleEndian(UInt32(0xDEAD_BEEF), at: central + 16)
+            try bytes.write(to: fixture.archive)
+
+            #expect(throws: ZipError.invalidArchive("CRC-32 validation failed")) {
+                try ZipArchive.extract(fixture.archive, to: fixture.output)
+            }
+            #expect(!FileManager.default.fileExists(atPath: fixture.output.path))
+            let leftovers = try FileManager.default.contentsOfDirectory(
+                at: fixture.root,
+                includingPropertiesForKeys: nil
+            ).filter { $0.lastPathComponent.hasPrefix(".aulycZip-extract-") }
+            #expect(leftovers.isEmpty)
+        }
+    }
+
+    @Test("existing final destination is never overwritten")
+    func existingDestinationIsRejected() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("safe.txt")
+            try Data("safe".utf8).write(to: source)
+            try ZipArchive.create(at: fixture.archive, contentsOf: [source], encryption: .none)
+            try FileManager.default.createDirectory(at: fixture.output, withIntermediateDirectories: true)
+            let marker = fixture.output.appendingPathComponent("keep.txt")
+            try Data("keep".utf8).write(to: marker)
+
+            #expect(throws: ZipError.destinationAlreadyExists(fixture.output.path)) {
+                try ZipArchive.extract(fixture.archive, to: fixture.output)
+            }
+            #expect(try Data(contentsOf: marker) == Data("keep".utf8))
+        }
+    }
+
+    @Test("path and free-space limits are enforced before staging")
+    func pathAndDiskLimits() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("bounded-name.txt")
+            try Data("bounded".utf8).write(to: source)
+            try ZipArchive.create(at: fixture.archive, contentsOf: [source], encryption: .none)
+
+            #expect(throws: ZipError.unsafeEntryPath("bounded-name.txt")) {
+                try ZipArchive.extract(
+                    fixture.archive,
+                    to: fixture.output,
+                    limits: ZipExtractionLimits(
+                        maximumEntryCount: 100,
+                        maximumEntryUncompressedSize: 1_024,
+                        maximumTotalUncompressedSize: 1_024,
+                        maximumPathUTF8ByteCount: 8,
+                        minimumFreeSpaceReserve: 0
+                    )
+                )
+            }
+            #expect(!FileManager.default.fileExists(atPath: fixture.output.path))
+        }
+    }
+
+    @Test("WinZip AES-128, AES-192, and AES-256 AE-1/AE-2 fixtures are readable")
+    func readsAllSupportedAESVariants() throws {
+        for strength in [WinZipAESStrength.aes128, .aes192, .aes256] {
+            for vendorVersion: UInt16 in [1, 2] {
+                try withFixture { fixture in
+                    let path = "aes-\(strength.rawValue)-ae-\(vendorVersion).txt"
+                    let original = Data(String(repeating: "variant-", count: 1_000).utf8)
+                    try makeAESFixture(
+                        path: path,
+                        contents: original,
+                        password: "variant-password",
+                        strength: strength,
+                        vendorVersion: vendorVersion
+                    ).write(to: fixture.archive)
+
+                    try ZipArchive.extract(
+                        fixture.archive,
+                        to: fixture.output,
+                        password: "variant-password"
+                    )
+                    #expect(try Data(contentsOf: fixture.output.appendingPathComponent(path)) == original)
+                }
+            }
+        }
+    }
+
+    @Test("classic multi-disk and ZipCrypto archives are rejected explicitly")
+    func rejectsUnsupportedClassicFeatures() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("unsupported.txt")
+            try Data("unsupported".utf8).write(to: source)
+            try ZipArchive.create(at: fixture.archive, contentsOf: [source], encryption: .none)
+
+            var multiDisk = try Data(contentsOf: fixture.archive)
+            let eocd = try #require(multiDisk.lastOffset(ofSignature: 0x0605_4B50))
+            multiDisk.replaceLittleEndian(UInt16(1), at: eocd + 4)
+            try multiDisk.write(to: fixture.archive)
+            #expect(throws: ZipError.unsupportedFeature("Multi-disk ZIP archives are not supported")) {
+                _ = try ZipArchive.list(fixture.archive)
+            }
+
+            try ZipArchiveWriter.create(
+                at: fixture.root.appendingPathComponent("zipcrypto.zip"),
+                contentsOf: [source],
+                encryption: .none
+            )
+            let zipCryptoURL = fixture.root.appendingPathComponent("zipcrypto.zip")
+            var zipCrypto = try Data(contentsOf: zipCryptoURL)
+            let local = try #require(zipCrypto.firstOffset(ofSignature: 0x0403_4B50))
+            let central = try #require(zipCrypto.firstOffset(ofSignature: 0x0201_4B50))
+            zipCrypto.replaceLittleEndian(UInt16((1 << 11) | 1), at: local + 6)
+            zipCrypto.replaceLittleEndian(UInt16((1 << 11) | 1), at: central + 8)
+            try zipCrypto.write(to: zipCryptoURL)
+            #expect(throws: ZipError.unsupportedFeature("Traditional ZipCrypto encryption is not supported")) {
+                _ = try ZipArchive.list(zipCryptoURL)
+            }
+        }
+    }
+
+    @Test("ZIP64 entry count is limited before central-directory allocation")
+    func zip64EntryCountLimit() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("count.txt")
+            try Data("count".utf8).write(to: source)
+            try ZipArchiveWriter.create(
+                at: fixture.archive,
+                contentsOf: [source],
+                encryption: .none,
+                options: ZipArchiveWriterOptions(forceZIP64: true)
+            )
+            var bytes = try Data(contentsOf: fixture.archive)
+            let zip64End = try #require(bytes.lastOffset(ofSignature: 0x0606_4B50))
+            bytes.replaceLittleEndian(UInt64(100_001), at: zip64End + 24)
+            bytes.replaceLittleEndian(UInt64(100_001), at: zip64End + 32)
+            try bytes.write(to: fixture.archive)
+
+            #expect(throws: ZipError.tooManyEntries) {
+                _ = try ZipArchive.list(fixture.archive)
+            }
+        }
+    }
+
+    @Test("third-party data descriptors are accepted using central-directory sizes")
+    func readsDataDescriptorArchive() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("descriptor.txt")
+            let original = Data(String(repeating: "descriptor-", count: 500).utf8)
+            try original.write(to: source)
+            try ZipArchive.create(at: fixture.archive, contentsOf: [source], encryption: .none)
+
+            var bytes = try Data(contentsOf: fixture.archive)
+            let local = try #require(bytes.firstOffset(ofSignature: 0x0403_4B50))
+            let central = try #require(bytes.firstOffset(ofSignature: 0x0201_4B50))
+            let eocd = try #require(bytes.lastOffset(ofSignature: 0x0605_4B50))
+            var values = ByteCursor(data: bytes, offset: local + 14)
+            let crc = try values.readUInt32()
+            let compressedSize = try values.readUInt32()
+            let uncompressedSize = try values.readUInt32()
+            bytes.replaceLittleEndian(UInt16((1 << 11) | (1 << 3)), at: local + 6)
+            bytes.replaceLittleEndian(UInt16((1 << 11) | (1 << 3)), at: central + 8)
+            bytes.replaceLittleEndian(UInt32(0), at: local + 14)
+            bytes.replaceLittleEndian(UInt32(0), at: local + 18)
+            bytes.replaceLittleEndian(UInt32(0), at: local + 22)
+            var descriptor = Data()
+            descriptor.appendLittleEndian(UInt32(0x0807_4B50))
+            descriptor.appendLittleEndian(crc)
+            descriptor.appendLittleEndian(compressedSize)
+            descriptor.appendLittleEndian(uncompressedSize)
+            bytes.insert(contentsOf: descriptor, at: central)
+            bytes.replaceLittleEndian(UInt32(central + descriptor.count), at: eocd + descriptor.count + 16)
+            try bytes.write(to: fixture.archive)
+
+            try ZipArchive.extract(fixture.archive, to: fixture.output)
+            #expect(try Data(contentsOf: fixture.output.appendingPathComponent("descriptor.txt")) == original)
+        }
+    }
+
+    @Test("cancellation rolls back creation and extraction transactions")
+    func cancellationRollsBack() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("cancelled.txt")
+            try Data(repeating: 0x43, count: 1024).write(to: source)
+            let creationCancellation = ZipOperationCancellation()
+            creationCancellation.cancel()
+            #expect(throws: ZipError.cancelled) {
+                try ZipArchive.create(
+                    at: fixture.archive,
+                    contentsOf: [source],
+                    encryption: .none,
+                    cancellation: creationCancellation
+                )
+            }
+            #expect(!FileManager.default.fileExists(atPath: fixture.archive.path))
+
+            try ZipArchive.create(at: fixture.archive, contentsOf: [source], encryption: .none)
+            let extractionCancellation = ZipOperationCancellation()
+            extractionCancellation.cancel()
+            #expect(throws: ZipError.cancelled) {
+                try ZipArchive.extract(
+                    fixture.archive,
+                    to: fixture.output,
+                    cancellation: extractionCancellation
+                )
+            }
+            #expect(!FileManager.default.fileExists(atPath: fixture.output.path))
+        }
+    }
+
+    @Test("symbolic-link entries are rejected instead of materialized")
+    func rejectsSymbolicLinkEntry() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("link.txt")
+            try Data("../outside".utf8).write(to: source)
+            try ZipArchive.create(at: fixture.archive, contentsOf: [source], encryption: .none)
+            var bytes = try Data(contentsOf: fixture.archive)
+            let central = try #require(bytes.firstOffset(ofSignature: 0x0201_4B50))
+            bytes.replaceLittleEndian(UInt32(0o120777 << 16), at: central + 38)
+            try bytes.write(to: fixture.archive)
+
+            #expect(throws: ZipError.unsupportedFeature("Symbolic links are not extracted")) {
+                _ = try ZipArchive.list(fixture.archive)
+            }
+        }
+    }
 }
 
 private struct Fixture {
@@ -243,4 +652,108 @@ private func replaceAll(_ old: Data, with replacement: Data, in data: inout Data
             data.replaceSubrange(offset..<(offset + old.count), with: replacement)
         }
     }
+}
+
+private extension Data {
+    func containsSignature(_ signature: UInt32) -> Bool {
+        firstOffset(ofSignature: signature) != nil
+    }
+
+    func firstOffset(ofSignature signature: UInt32) -> Int? {
+        var encoded = Data()
+        encoded.appendLittleEndian(signature)
+        return range(of: encoded)?.lowerBound
+    }
+
+    func lastOffset(ofSignature signature: UInt32) -> Int? {
+        var encoded = Data()
+        encoded.appendLittleEndian(signature)
+        return range(of: encoded, options: .backwards)?.lowerBound
+    }
+
+    mutating func replaceLittleEndian<T: FixedWidthInteger>(_ value: T, at offset: Int) {
+        var encoded = Data()
+        encoded.appendLittleEndian(value)
+        replaceSubrange(offset..<(offset + encoded.count), with: encoded)
+    }
+}
+
+private func makeAESFixture(
+    path: String,
+    contents: Data,
+    password: String,
+    strength: WinZipAESStrength,
+    vendorVersion: UInt16
+) throws -> Data {
+    let compressed = try RawDeflate.compress(contents)
+    let crc = CRC32.checksum(contents)
+    let salt = Data((0..<strength.saltByteCount).map { UInt8($0 + 1) })
+    let material = try WinZipAESKeyMaterial.derive(
+        password: password,
+        salt: salt,
+        strength: strength
+    )
+    var encryptor = try WinZipAESCTR(key: material.encryptionKey)
+    let encrypted = try encryptor.update(compressed)
+    let authentication = Data(
+        HMACSHA1.authenticationCode(for: encrypted, key: material.authenticationKey).prefix(10)
+    )
+    let payload = salt + material.passwordVerification + encrypted + authentication
+    let pathData = Data(path.utf8)
+    var extra = Data()
+    extra.appendLittleEndian(UInt16(0x9901))
+    extra.appendLittleEndian(UInt16(7))
+    extra.appendLittleEndian(vendorVersion)
+    extra.append(contentsOf: [0x41, 0x45])
+    extra.append(strength.rawValue)
+    extra.appendLittleEndian(UInt16(8))
+    let headerCRC = vendorVersion == 1 ? crc : 0
+    let flags: UInt16 = (1 << 11) | 1
+
+    var archive = Data()
+    archive.appendLittleEndian(UInt32(0x0403_4B50))
+    archive.appendLittleEndian(UInt16(51))
+    archive.appendLittleEndian(flags)
+    archive.appendLittleEndian(UInt16(99))
+    archive.appendLittleEndian(UInt16(0))
+    archive.appendLittleEndian(UInt16(0))
+    archive.appendLittleEndian(headerCRC)
+    archive.appendLittleEndian(UInt32(payload.count))
+    archive.appendLittleEndian(UInt32(contents.count))
+    archive.appendLittleEndian(UInt16(pathData.count))
+    archive.appendLittleEndian(UInt16(extra.count))
+    archive.append(pathData)
+    archive.append(extra)
+    archive.append(payload)
+
+    let centralOffset = UInt32(archive.count)
+    archive.appendLittleEndian(UInt32(0x0201_4B50))
+    archive.appendLittleEndian(UInt16(0x033F))
+    archive.appendLittleEndian(UInt16(51))
+    archive.appendLittleEndian(flags)
+    archive.appendLittleEndian(UInt16(99))
+    archive.appendLittleEndian(UInt16(0))
+    archive.appendLittleEndian(UInt16(0))
+    archive.appendLittleEndian(headerCRC)
+    archive.appendLittleEndian(UInt32(payload.count))
+    archive.appendLittleEndian(UInt32(contents.count))
+    archive.appendLittleEndian(UInt16(pathData.count))
+    archive.appendLittleEndian(UInt16(extra.count))
+    archive.appendLittleEndian(UInt16(0))
+    archive.appendLittleEndian(UInt16(0))
+    archive.appendLittleEndian(UInt16(0))
+    archive.appendLittleEndian(UInt32(0o100644 << 16))
+    archive.appendLittleEndian(UInt32(0))
+    archive.append(pathData)
+    archive.append(extra)
+    let centralSize = UInt32(archive.count) - centralOffset
+    archive.appendLittleEndian(UInt32(0x0605_4B50))
+    archive.appendLittleEndian(UInt16(0))
+    archive.appendLittleEndian(UInt16(0))
+    archive.appendLittleEndian(UInt16(1))
+    archive.appendLittleEndian(UInt16(1))
+    archive.appendLittleEndian(centralSize)
+    archive.appendLittleEndian(centralOffset)
+    archive.appendLittleEndian(UInt16(0))
+    return archive
 }

@@ -7,18 +7,45 @@ public enum InstallPhase: Equatable, Sendable {
     case ready
 }
 
+private struct VerifiedApplicationIdentity {
+    let executableSHA256: String
+    let infoPlistSHA256: String
+}
+
 public final class PreparedUpdate: @unchecked Sendable {
     fileprivate let workDirectory: URL
     fileprivate let replacementApp: URL
-    fileprivate var handedOff = false
+    fileprivate let executableSHA256: String
+    fileprivate let infoPlistSHA256: String
+    fileprivate let teamIdentifier: String
+    private let stateLock = NSLock()
+    private var handedOff = false
 
-    fileprivate init(workDirectory: URL, replacementApp: URL) {
+    fileprivate init(
+        workDirectory: URL,
+        replacementApp: URL,
+        executableSHA256: String,
+        infoPlistSHA256: String,
+        teamIdentifier: String
+    ) {
         self.workDirectory = workDirectory
         self.replacementApp = replacementApp
+        self.executableSHA256 = executableSHA256
+        self.infoPlistSHA256 = infoPlistSHA256
+        self.teamIdentifier = teamIdentifier
+    }
+
+    fileprivate func markHandedOff() {
+        stateLock.lock()
+        handedOff = true
+        stateLock.unlock()
     }
 
     deinit {
-        if !handedOff {
+        stateLock.lock()
+        let shouldClean = !handedOff
+        stateLock.unlock()
+        if shouldClean {
             try? FileManager.default.removeItem(at: workDirectory)
         }
     }
@@ -277,7 +304,7 @@ public final class UpdateInstaller: NSObject, @unchecked Sendable {
         )
         mounted = false
 
-        try verifyApplication(
+        let verifiedIdentity = try verifyApplication(
             at: replacementApp,
             manifest: manifest,
             provenanceAt: provenanceURL
@@ -286,7 +313,10 @@ public final class UpdateInstaller: NSObject, @unchecked Sendable {
         completed = true
         return PreparedUpdate(
             workDirectory: workDirectory,
-            replacementApp: replacementApp
+            replacementApp: replacementApp,
+            executableSHA256: verifiedIdentity.executableSHA256,
+            infoPlistSHA256: verifiedIdentity.infoPlistSHA256,
+            teamIdentifier: manifest.teamIdentifier
         )
     }
 
@@ -307,7 +337,10 @@ public final class UpdateInstaller: NSObject, @unchecked Sendable {
             sourceApp: prepared.replacementApp,
             destinationApp: destination,
             backupApp: backup,
-            currentPID: pid
+            currentPID: pid,
+            expectedExecutableSHA256: prepared.executableSHA256,
+            expectedInfoPlistSHA256: prepared.infoPlistSHA256,
+            expectedTeamIdentifier: prepared.teamIdentifier
         )
 
         let task = Process()
@@ -315,6 +348,7 @@ public final class UpdateInstaller: NSObject, @unchecked Sendable {
         task.arguments = [
             "-c", script, "aulycZip-updater",
             prepared.replacementApp.path, destination.path, backup.path,
+            prepared.executableSHA256, prepared.infoPlistSHA256, prepared.teamIdentifier,
         ]
         task.standardOutput = FileHandle.nullDevice
         task.standardError = FileHandle.nullDevice
@@ -323,14 +357,17 @@ public final class UpdateInstaller: NSObject, @unchecked Sendable {
         } catch {
             throw InstallError.helperLaunchFailed
         }
-        prepared.handedOff = true
+        prepared.markHandedOff()
     }
 
     static func replacementScript(
         sourceApp: URL,
         destinationApp: URL,
         backupApp: URL,
-        currentPID: Int32
+        currentPID: Int32,
+        expectedExecutableSHA256: String,
+        expectedInfoPlistSHA256: String,
+        expectedTeamIdentifier: String
     ) throws -> String {
         let canonicalDestination = URL(
             fileURLWithPath: "/Applications/aulycZip.app",
@@ -347,7 +384,13 @@ public final class UpdateInstaller: NSObject, @unchecked Sendable {
               sourceApp.lastPathComponent == "aulycZip.app",
               sourceParent.lastPathComponent == "replacement",
               workDirectory.lastPathComponent.hasPrefix("aulycZip-update-"),
-              currentPID > 0
+              currentPID > 0,
+              UpdateManifest.isSHA256(expectedExecutableSHA256),
+              UpdateManifest.isSHA256(expectedInfoPlistSHA256),
+              expectedTeamIdentifier.range(
+                of: "^[A-Z0-9]{10}$",
+                options: .regularExpression
+              ) != nil
         else {
             throw InstallError.unsupportedInstallLocation
         }
@@ -356,6 +399,9 @@ public final class UpdateInstaller: NSObject, @unchecked Sendable {
         source_app="$1"
         destination_app="$2"
         backup_app="$3"
+        expected_executable_sha="$4"
+        expected_info_sha="$5"
+        expected_team_id="$6"
         [ "$destination_app" = "/Applications/aulycZip.app" ] || exit 21
         [ -d "$source_app" ] || exit 22
         [ ! -e "$backup_app" ] || exit 23
@@ -366,6 +412,17 @@ public final class UpdateInstaller: NSObject, @unchecked Sendable {
           /bin/sleep 0.1
         done
         kill -0 \(currentPID) 2>/dev/null && exit 20
+        actual_executable_sha="$(/usr/bin/shasum -a 256 "$source_app/Contents/MacOS/aulycZip" | /usr/bin/awk '{print $1}')"
+        [ "$actual_executable_sha" = "$expected_executable_sha" ] || exit 28
+        actual_info_sha="$(/usr/bin/shasum -a 256 "$source_app/Contents/Info.plist" | /usr/bin/awk '{print $1}')"
+        [ "$actual_info_sha" = "$expected_info_sha" ] || exit 29
+        /usr/bin/codesign --verify --deep --strict "$source_app" >/dev/null 2>&1 || exit 30
+        signature="$(/usr/bin/codesign -dv --verbose=4 "$source_app" 2>&1)" || exit 30
+        case "$signature" in
+          *"TeamIdentifier=$expected_team_id"*) ;;
+          *) exit 31 ;;
+        esac
+        /usr/sbin/spctl -a -t exec "$source_app" >/dev/null 2>&1 || exit 32
         /bin/mv "$destination_app" "$backup_app" || exit 24
         if /bin/mv "$source_app" "$destination_app"; then
           /bin/rm -rf "$backup_app"
@@ -501,7 +558,7 @@ public final class UpdateInstaller: NSObject, @unchecked Sendable {
         at app: URL,
         manifest: UpdateManifest,
         provenanceAt provenanceURL: URL
-    ) throws {
+    ) throws -> VerifiedApplicationIdentity {
         guard let provenanceData = try? Data(contentsOf: provenanceURL),
               let raw = try? JSONSerialization.jsonObject(with: provenanceData),
               let provenance = raw as? [String: Any],
@@ -576,6 +633,10 @@ public final class UpdateInstaller: NSObject, @unchecked Sendable {
             ["-a", "-vvv", "-t", "exec", app.path],
             throwing: .signatureInvalid
         )
+        return VerifiedApplicationIdentity(
+            executableSHA256: expectedExecutableHash,
+            infoPlistSHA256: expectedInfoHash
+        )
     }
 
     private static func preserveDownloadedFile(
@@ -597,18 +658,17 @@ public final class UpdateInstaller: NSObject, @unchecked Sendable {
         _ arguments: [String],
         throwing error: InstallError
     ) throws {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: launchPath)
-        process.arguments = arguments
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
         do {
-            try process.run()
+            let result = try ProcessRunner.run(
+                launchPath,
+                arguments: arguments,
+                timeout: 120,
+                outputLimit: 64 * 1024
+            )
+            guard result.terminationStatus == 0 else { throw error }
         } catch {
             throw error
         }
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else { throw error }
     }
 
     private static func capturedOutput(
@@ -616,23 +676,20 @@ public final class UpdateInstaller: NSObject, @unchecked Sendable {
         _ arguments: [String],
         throwing error: InstallError
     ) throws -> String {
-        let process = Process()
-        let pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: launchPath)
-        process.arguments = arguments
-        process.standardOutput = pipe
-        process.standardError = pipe
         do {
-            try process.run()
+            let result = try ProcessRunner.run(
+                launchPath,
+                arguments: arguments,
+                timeout: 120,
+                outputLimit: 1024 * 1024
+            )
+            guard result.terminationStatus == 0, !result.outputWasTruncated else {
+                throw error
+            }
+            return result.output
         } catch {
             throw error
         }
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else { throw error }
-        return String(
-            decoding: pipe.fileHandleForReading.readDataToEndOfFile(),
-            as: UTF8.self
-        ).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 

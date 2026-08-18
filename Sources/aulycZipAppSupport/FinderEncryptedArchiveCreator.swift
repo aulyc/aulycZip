@@ -9,6 +9,7 @@ public enum FinderEncryptedArchiveCreator {
     public static func create(
         request: FinderArchiveRequest,
         password: String,
+        cancellation: ZipOperationCancellation? = nil,
         fileManager: FileManager = .default
     ) throws -> URL {
         let parent = request.destinationURL.deletingLastPathComponent()
@@ -20,9 +21,11 @@ public enum FinderEncryptedArchiveCreator {
         try ZipArchive.create(
             at: temporaryURL,
             contentsOf: request.sourceURLs,
-            encryption: .winZipAES256(password: password)
+            encryption: .winZipAES256(password: password),
+            cancellation: cancellation
         )
 
+        try cancellation?.throwIfCancelled()
         guard !fileManager.fileExists(atPath: request.destinationURL.path) else {
             throw FinderEncryptedArchiveCreationError.destinationExists
         }

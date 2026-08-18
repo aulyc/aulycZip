@@ -16,9 +16,12 @@ public struct CRC32: Sendable {
     public init() {}
 
     public mutating func update(_ data: Data) {
-        for byte in data {
-            let index = Int((value ^ UInt32(byte)) & 0xFF)
-            value = Self.table[index] ^ (value >> 8)
+        data.withUnsafeBytes { rawBuffer in
+            let bytes = rawBuffer.bindMemory(to: UInt8.self)
+            for index in bytes.indices {
+                let tableIndex = Int((value ^ UInt32(bytes[index])) & 0xFF)
+                value = Self.table[tableIndex] ^ (value >> 8)
+            }
         }
     }
 

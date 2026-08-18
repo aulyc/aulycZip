@@ -31,7 +31,7 @@ final class AboutWindowController: NSObject {
 
         let contentView = makeContentView()
         let window = AboutWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 500, height: 500),
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 570),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -40,9 +40,9 @@ final class AboutWindowController: NSObject {
         window.titleVisibility = .visible
         window.contentView = contentView
         window.isReleasedWhenClosed = false
-        window.setContentSize(NSSize(width: 500, height: 500))
-        window.contentMinSize = NSSize(width: 500, height: 500)
-        window.contentMaxSize = NSSize(width: 500, height: 500)
+        window.setContentSize(NSSize(width: 500, height: 570))
+        window.contentMinSize = NSSize(width: 500, height: 570)
+        window.contentMaxSize = NSSize(width: 500, height: 570)
         aboutWindow = window
         window.center()
         window.makeKeyAndOrderFront(nil)
@@ -70,9 +70,14 @@ final class AboutWindowController: NSObject {
         }
 
         let introduction = section(title: "应用介绍", views: [
-            bodyLabel("1. aulycZip 是一款原生 macOS 菜单栏加密 ZIP 工具，可从菜单栏或 Finder 右键创建 WinZip AES-256 加密 ZIP；"),
-            bodyLabel("2. 应用可以解压普通 ZIP 和 WinZip AES-128/192/256 加密 ZIP，并在写出文件前验证密码和认证码；"),
-            bodyLabel("3. 密码仅用于当前操作，不会保存或写入日志；ZIP 文件名和目录名不会被加密，仍可能被其他软件看到。"),
+            bodyLabel("aulycZip 是一款原生 macOS 菜单栏工具，支持创建 WinZip AES-256 加密 ZIP/ZIP64，以及解压普通、ZIP64 或 WinZip AES 加密归档。"),
+        ])
+
+        let usage = section(title: "使用说明", views: [
+            bodyLabel("1. 创建：从菜单栏选择“创建加密 ZIP…”，或在 Finder 中右键选择“使用 aulycZip 加密压缩”。"),
+            bodyLabel("2. 解压：从菜单栏选择“解压 ZIP…”，再按提示选择压缩包和保存位置。"),
+            bodyLabel("3. 密码仅用于当前操作，不会保存；密码遗失后无法恢复。"),
+            bodyLabel("4. ZIP 只加密文件内容，不隐藏文件名和目录名。如需隐藏名称，可先用 Finder 压缩，再加密生成的 ZIP。"),
         ])
 
         let websiteButton = NSButton(
@@ -100,7 +105,7 @@ final class AboutWindowController: NSObject {
         copyright.font = .systemFont(ofSize: 11)
         copyright.textColor = .tertiaryLabelColor
 
-        let stack = NSStackView(views: [metadata, introduction, website, acknowledgements, copyright])
+        let stack = NSStackView(views: [metadata, introduction, usage, website, acknowledgements, copyright])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 16

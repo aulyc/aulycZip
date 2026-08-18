@@ -138,12 +138,19 @@ struct UpdateContractTests {
             sourceApp: source,
             destinationApp: destination,
             backupApp: backup,
-            currentPID: 42
+            currentPID: 42,
+            expectedExecutableSHA256: String(repeating: "3", count: 64),
+            expectedInfoPlistSHA256: String(repeating: "4", count: 64),
+            expectedTeamIdentifier: "M9M7M2ARFD"
         )
 
         #expect(script.contains("[ \"$destination_app\" = \"/Applications/aulycZip.app\" ]"))
         #expect(script.contains("/bin/mv \"$destination_app\" \"$backup_app\""))
         #expect(script.contains("/bin/mv \"$backup_app\" \"$destination_app\""))
+        #expect(script.contains("/usr/bin/shasum -a 256"))
+        #expect(script.contains("/usr/bin/codesign --verify --deep --strict"))
+        #expect(script.contains("TeamIdentifier=$expected_team_id"))
+        #expect(script.contains("/usr/sbin/spctl -a -t exec"))
     }
 
     private func expectManifestFailure(

@@ -2,16 +2,17 @@ import Foundation
 import Testing
 @testable import ZipCore
 
+private let sevenZipPath = ProcessInfo.processInfo.environment["AULYCZIP_7ZZ"]
+
 @Suite("External ZIP compatibility")
 struct ExternalCompatibilityTests {
     @Test(
         "7-Zip extracts an aulycZip WinZip AES-256 archive",
+        .enabled(if: sevenZipPath != nil, "Set AULYCZIP_7ZZ to run external compatibility tests"),
         arguments: ["aulycZip-known-test-password", "中文密码安全测试"]
     )
     func sevenZipExtractsOurArchive(password: String) throws {
-        guard let sevenZip = ProcessInfo.processInfo.environment["AULYCZIP_7ZZ"] else {
-            return
-        }
+        let sevenZip = try #require(sevenZipPath)
 
         try withCompatibilityFixture { fixture in
             let source = fixture.source.appendingPathComponent("兼容性.txt")
@@ -31,11 +32,12 @@ struct ExternalCompatibilityTests {
         }
     }
 
-    @Test("aulycZip extracts a 7-Zip AES-256 archive")
+    @Test(
+        "aulycZip extracts a 7-Zip AES-256 archive",
+        .enabled(if: sevenZipPath != nil, "Set AULYCZIP_7ZZ to run external compatibility tests")
+    )
     func extractsSevenZipArchive() throws {
-        guard let sevenZip = ProcessInfo.processInfo.environment["AULYCZIP_7ZZ"] else {
-            return
-        }
+        let sevenZip = try #require(sevenZipPath)
 
         try withCompatibilityFixture { fixture in
             let password = "aulycZip-known-test-password"
@@ -52,6 +54,37 @@ struct ExternalCompatibilityTests {
             )
             try ZipArchive.extract(fixture.archive, to: fixture.output, password: password)
             #expect(try Data(contentsOf: fixture.output.appendingPathComponent("reverse.txt")) == original)
+        }
+    }
+
+    @Test(
+        "7-Zip extracts forced ZIP64 plain and AES-256 archives",
+        .enabled(if: sevenZipPath != nil, "Set AULYCZIP_7ZZ to run external compatibility tests")
+    )
+    func sevenZipExtractsZIP64Archives() throws {
+        let sevenZip = try #require(sevenZipPath)
+        try withCompatibilityFixture { fixture in
+            let source = fixture.source.appendingPathComponent("zip64-external.txt")
+            let original = Data(String(repeating: "ZIP64 interoperability-", count: 1_000).utf8)
+            try original.write(to: source)
+            try ZipArchiveWriter.create(
+                at: fixture.archive,
+                contentsOf: [source],
+                encryption: .winZipAES256(password: "aulycZip-known-test-password"),
+                options: ZipArchiveWriterOptions(forceZIP64: true)
+            )
+
+            try run(
+                sevenZip,
+                arguments: [
+                    "x", fixture.archive.path, "-o\(fixture.externalOutput.path)",
+                    "-paulycZip-known-test-password", "-y",
+                ]
+            )
+            #expect(
+                try Data(contentsOf: fixture.externalOutput.appendingPathComponent("zip64-external.txt"))
+                    == original
+            )
         }
     }
 }
@@ -85,10 +118,15 @@ private func run(_ executable: String, arguments: [String]) throws {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: executable)
     process.arguments = arguments
-    process.standardOutput = Pipe()
-    process.standardError = Pipe()
+    process.standardOutput = FileHandle.nullDevice
+    process.standardError = FileHandle.nullDevice
+    let terminated = DispatchSemaphore(value: 0)
+    process.terminationHandler = { _ in terminated.signal() }
     try process.run()
-    process.waitUntilExit()
+    guard terminated.wait(timeout: .now() + 120) == .success else {
+        process.terminate()
+        throw ZipError.invalidArchive("External compatibility command timed out")
+    }
     guard process.terminationStatus == 0 else {
         throw ZipError.invalidArchive("External compatibility command failed with status \(process.terminationStatus)")
     }

@@ -3,12 +3,18 @@ import AppKit
 @MainActor
 final class OperationProgressPanelController {
     private var panel: NSPanel?
+    private var cancelHandler: (() -> Void)?
 
-    func show(title: String, detail: String) {
+    func show(
+        title: String,
+        detail: String,
+        onCancel: (() -> Void)? = nil
+    ) {
         dismiss()
+        cancelHandler = onCancel
 
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 380, height: 132),
+            contentRect: NSRect(x: 0, y: 0, width: 380, height: onCancel == nil ? 132 : 166),
             styleMask: [.titled],
             backing: .buffered,
             defer: false
@@ -44,11 +50,32 @@ final class OperationProgressPanelController {
         row.translatesAutoresizingMaskIntoConstraints = false
         panel.contentView?.addSubview(row)
         if let contentView = panel.contentView {
-            NSLayoutConstraint.activate([
+            var constraints = [
                 row.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 28),
                 row.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -28),
-                row.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            ])
+            ]
+            if onCancel == nil {
+                constraints.append(row.centerYAnchor.constraint(equalTo: contentView.centerYAnchor))
+            } else {
+                let cancelButton = NSButton(
+                    title: "取消",
+                    target: self,
+                    action: #selector(cancelOperation(_:))
+                )
+                cancelButton.bezelStyle = .rounded
+                cancelButton.translatesAutoresizingMaskIntoConstraints = false
+                contentView.addSubview(cancelButton)
+                constraints.append(contentsOf: [
+                    row.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 30),
+                    cancelButton.trailingAnchor.constraint(
+                        equalTo: contentView.trailingAnchor,
+                        constant: -24
+                    ),
+                    cancelButton.topAnchor.constraint(equalTo: row.bottomAnchor, constant: 14),
+                    cancelButton.widthAnchor.constraint(equalToConstant: 80),
+                ])
+            }
+            NSLayoutConstraint.activate(constraints)
         }
 
         panel.center()
@@ -59,5 +86,11 @@ final class OperationProgressPanelController {
     func dismiss() {
         panel?.orderOut(nil)
         panel = nil
+        cancelHandler = nil
+    }
+
+    @objc private func cancelOperation(_ sender: NSButton) {
+        sender.isEnabled = false
+        cancelHandler?()
     }
 }

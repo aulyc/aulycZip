@@ -5,11 +5,14 @@ aulycZip 是一个原生 macOS 菜单栏 ZIP 工具，界面使用 AppKit 编写
 当前功能：
 
 - 创建 WinZip AES-256（AE-2）加密 ZIP
+- 按实际大小和偏移自动创建普通 ZIP 或 ZIP64，小归档保持普通 ZIP
 - 在 Finder 右键菜单中加密压缩所选文件或文件夹
 - 解压普通 ZIP 和 WinZip AES-128/192/256 ZIP
-- 与 WinZip、7-Zip、Keka 使用的 WinZip AES ZIP 格式互操作
+- 读取普通 ZIP、ZIP64、Store、Deflate，以及 WinZip AES-128/192/256 AE-1/AE-2
 - 在写出文件前验证密码与认证码
-- 阻止路径穿越、符号链接逃逸和超限解压
+- 以固定大小分块压缩、加密、认证和解压，不把整个归档或单个大文件载入内存
+- 使用同级临时文件/目录，全部成功后原子提交；失败或取消不留下最终半成品
+- 阻止路径穿越、文件名碰撞、符号链接逃逸和超限解压
 - 每日自动检查正式更新，也可从菜单栏手动“检查更新…”
 - 更新源固定 GitHub 优先、Gitee 回退，安装前验证 SHA-256、发布溯源、签名与公证
 - 在“关于 aulycZip”中查看版本、系统要求、产品说明、官网与致谢
@@ -41,14 +44,27 @@ open .cache/build/aulycZip.app
 make check
 ```
 
+共享工程规范默认从维护机路径读取；在其他开发机或 CI 上应显式指向已检出的规范仓库，避免依赖本机绝对路径：
+
+```bash
+STANDARDS_ROOT=/absolute/path/to/codex-engineering-standards make standards-check
+```
+
 正式版安装在 `/Applications/aulycZip.app` 时，可以直接在菜单栏完成在线升级。开发
 构建和从其他目录运行的副本只检查新版本，不会自动覆盖应用；这种情况下可打开
 GitHub 发布页手动下载。
 
-外部 7-Zip 双向兼容测试默认不依赖本机安装。需要运行时显式提供测试工具路径：
+外部 7-Zip 双向兼容测试在未配置工具时会明确显示为 skipped。需要运行时显式提供测试工具路径：
 
 ```bash
 AULYCZIP_7ZZ=/absolute/path/to/7zz swift test --filter ExternalCompatibilityTests
+```
+
+流式性能基准默认使用 200 MiB 输入，可通过环境变量调整（大文件和 5 GiB ZIP64 验收应在具备足够临时磁盘空间的专用环境运行）：
+
+```bash
+bash scripts/benchmark-zipcore.sh
+AULYCZIP_BENCHMARK_BYTES=5368709120 bash scripts/benchmark-zipcore.sh
 ```
 
 ## 加密说明

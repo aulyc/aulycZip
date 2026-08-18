@@ -36,6 +36,13 @@ struct ByteCursor {
         }
     }
 
+    mutating func readUInt64() throws -> UInt64 {
+        let bytes = try read(count: MemoryLayout<UInt64>.size)
+        return bytes.withUnsafeBytes { rawBuffer in
+            UInt64(littleEndian: rawBuffer.loadUnaligned(as: UInt64.self))
+        }
+    }
+
     mutating func read(count: Int) throws -> Data {
         guard count >= 0, remainingCount >= count else {
             throw ZipError.truncatedArchive

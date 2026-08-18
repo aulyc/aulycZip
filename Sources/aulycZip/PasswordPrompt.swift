@@ -1,7 +1,7 @@
 import AppKit
 import aulycZipAppSupport
 
-struct FinderArchiveCreationChoice {
+struct FinderArchiveCreationChoice: Sendable {
     let password: String
     let request: FinderArchiveRequest
 }
@@ -637,8 +637,7 @@ private final class GeneratedPasswordController: NSObject {
         passwordField.stringValue = generatedPassword
         confirmationField.stringValue = generatedPassword
         if choice.copyToPasteboard {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(generatedPassword, forType: .string)
+            PasswordPasteboardWriter.write(generatedPassword)
         }
     }
 
@@ -1085,8 +1084,10 @@ private final class ArchiveFileNameControl: NSView, NSTextFieldDelegate {
 
 private final class PasswordEntryControl: NSView {
     private let fieldBackground = NSBox()
-    private let secureField = ThinFocusSecureTextField(frame: .zero)
-    private let visibleField = ThinFocusPlainTextField(frame: .zero)
+    private let secureField = NSSecureTextField(frame: .zero)
+    private let visibleField = NSTextField(frame: .zero)
+    private let secureFocusDelegate = ThinFocusTextFieldDelegate()
+    private let visibleFocusDelegate = ThinFocusTextFieldDelegate()
     private let visibilityButton = NSButton(frame: .zero)
     private var isEditing = false
 
@@ -1115,6 +1116,8 @@ private final class PasswordEntryControl: NSView {
 
         configure(field: secureField, placeholder: placeholder, value: value)
         configure(field: visibleField, placeholder: placeholder, value: "")
+        secureField.delegate = secureFocusDelegate
+        visibleField.delegate = visibleFocusDelegate
         visibleField.isHidden = true
 
         fieldBackground.boxType = .custom
@@ -1125,10 +1128,10 @@ private final class PasswordEntryControl: NSView {
         fieldBackground.titlePosition = .noTitle
         fieldBackground.translatesAutoresizingMaskIntoConstraints = false
 
-        secureField.onFocusChanged = { [weak self] focused in
+        secureFocusDelegate.onFocusChanged = { [weak self] focused in
             self?.setFocusedAppearance(focused)
         }
-        visibleField.onFocusChanged = { [weak self] focused in
+        visibleFocusDelegate.onFocusChanged = { [weak self] focused in
             self?.setFocusedAppearance(focused)
         }
 
@@ -1204,8 +1207,8 @@ private final class PasswordEntryControl: NSView {
     func focus() -> Bool {
         let focused = window?.makeFirstResponder(activeField) ?? false
         if focused {
-            (activeField as? ThinFocusSecureTextField)?.setFocusedAppearance(true)
-            (activeField as? ThinFocusPlainTextField)?.setFocusedAppearance(true)
+            (isPasswordVisible ? visibleFocusDelegate : secureFocusDelegate)
+                .setFocusedAppearance(true)
         }
         return focused
     }
@@ -1296,48 +1299,9 @@ private final class PasswordEntryControl: NSView {
     }
 }
 
-private final class ThinFocusSecureTextField: NSSecureTextField, NSTextFieldDelegate {
+private final class ThinFocusTextFieldDelegate: NSObject, NSTextFieldDelegate {
     private var isEditing = false
     var onFocusChanged: ((Bool) -> Void)?
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        delegate = self
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    func controlTextDidBeginEditing(_ notification: Notification) {
-        setFocusedAppearance(true)
-    }
-
-    func controlTextDidEndEditing(_ notification: Notification) {
-        setFocusedAppearance(false)
-    }
-
-    func setFocusedAppearance(_ focused: Bool) {
-        guard isEditing != focused else { return }
-        isEditing = focused
-        onFocusChanged?(focused)
-    }
-}
-
-private final class ThinFocusPlainTextField: NSTextField, NSTextFieldDelegate {
-    private var isEditing = false
-    var onFocusChanged: ((Bool) -> Void)?
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        delegate = self
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
 
     func controlTextDidBeginEditing(_ notification: Notification) {
         setFocusedAppearance(true)

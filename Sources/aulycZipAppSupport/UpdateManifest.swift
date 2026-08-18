@@ -259,7 +259,6 @@ public struct UpdateManifest: Decodable, Equatable, Sendable {
 public final class UpdateManifestLoader: @unchecked Sendable {
     public struct LoadedManifest: Sendable {
         public let manifest: UpdateManifest
-        public let sourceURL: URL
     }
 
     public static let defaultURLs = [
@@ -316,7 +315,7 @@ public final class UpdateManifestLoader: @unchecked Sendable {
                     throw URLError(.badServerResponse)
                 }
                 let manifest = try UpdateManifest.decodeValidated(from: data)
-                completion(.success(LoadedManifest(manifest: manifest, sourceURL: url)))
+                completion(.success(LoadedManifest(manifest: manifest)))
             } catch {
                 self.load(at: index + 1, lastError: error, completion: completion)
             }

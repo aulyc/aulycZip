@@ -5,12 +5,14 @@ import aulycZipAppSupport
 
 private enum WorkflowOutcome: Sendable {
     case success
+    case cancelled
     case zipFailure(ZipError)
     case systemFailure(String)
 }
 
 private enum ListingOutcome: Sendable {
     case success([ZipEntry])
+    case cancelled
     case zipFailure(ZipError)
     case systemFailure(String)
 }
@@ -19,7 +21,11 @@ private enum ListingOutcome: Sendable {
 final class ArchiveWorkflowController {
     private let progress = OperationProgressPanelController()
     private let aboutWindowController = AboutWindowController()
-    private var isBusy = false
+    private let operationCoordinator: AppOperationCoordinator
+
+    init(operationCoordinator: AppOperationCoordinator) {
+        self.operationCoordinator = operationCoordinator
+    }
 
     func createEncryptedArchive() {
         guard beginUserFlow() else { return }
@@ -32,7 +38,7 @@ final class ArchiveWorkflowController {
         sourcePanel.allowsMultipleSelection = true
         sourcePanel.resolvesAliases = false
         guard sourcePanel.runModal() == .OK, !sourcePanel.urls.isEmpty else {
-            isBusy = false
+            operationCoordinator.end(.archive)
             return
         }
 
@@ -44,19 +50,18 @@ final class ArchiveWorkflowController {
         destinationPanel.directoryURL = sourcePanel.urls.first?.deletingLastPathComponent()
         destinationPanel.nameFieldStringValue = suggestedArchiveName(for: sourcePanel.urls)
         guard destinationPanel.runModal() == .OK, let destination = destinationPanel.url else {
-            isBusy = false
+            operationCoordinator.end(.archive)
             return
         }
 
         guard let password = PasswordPrompt.requestNewPassword() else {
-            isBusy = false
+            operationCoordinator.end(.archive)
             return
         }
-        startEncryptedCreation(
+        startMenuEncryptedCreation(
             sourceURLs: sourcePanel.urls,
             destination: destination,
-            password: password,
-            finderRequest: nil
+            password: password
         )
     }
 
@@ -66,45 +71,59 @@ final class ArchiveWorkflowController {
         do {
             request = try FinderArchiveRequest(sourceURLs: sourceURLs)
         } catch {
-            isBusy = false
+            operationCoordinator.end(.archive)
             presentErrorMessage("Finder 没有提供可压缩的文件或文件夹。")
             return
         }
         guard let choice = PasswordPrompt.requestNewPassword(for: request) else {
-            isBusy = false
+            operationCoordinator.end(.archive)
             return
         }
-        startEncryptedCreation(
-            sourceURLs: choice.request.sourceURLs,
-            destination: choice.request.destinationURL,
-            password: choice.password,
-            finderRequest: choice.request
-        )
+        startFinderEncryptedCreation(choice)
     }
 
-    private func startEncryptedCreation(
+    private func startMenuEncryptedCreation(
         sourceURLs: [URL],
         destination: URL,
-        password: String,
-        finderRequest: FinderArchiveRequest?
+        password: String
     ) {
-        progress.show(title: "正在创建加密 ZIP", detail: destination.lastPathComponent)
+        performEncryptedCreation(destination: destination) { cancellation in
+            try ZipArchive.create(
+                at: destination,
+                contentsOf: sourceURLs,
+                encryption: .winZipAES256(password: password),
+                cancellation: cancellation
+            )
+        }
+    }
+
+    private func startFinderEncryptedCreation(_ choice: FinderArchiveCreationChoice) {
+        performEncryptedCreation(destination: choice.request.destinationURL) { cancellation in
+            _ = try FinderEncryptedArchiveCreator.create(
+                request: choice.request,
+                password: choice.password,
+                cancellation: cancellation
+            )
+        }
+    }
+
+    private func performEncryptedCreation(
+        destination: URL,
+        operation: @escaping @Sendable (ZipOperationCancellation) throws -> Void
+    ) {
+        let cancellation = ZipOperationCancellation()
+        progress.show(
+            title: "正在创建加密 ZIP",
+            detail: destination.lastPathComponent,
+            onCancel: { cancellation.cancel() }
+        )
         Task {
             let outcome = await Task.detached(priority: .userInitiated) {
                 do {
-                    if let finderRequest {
-                        _ = try FinderEncryptedArchiveCreator.create(
-                            request: finderRequest,
-                            password: password
-                        )
-                    } else {
-                        try ZipArchive.create(
-                            at: destination,
-                            contentsOf: sourceURLs,
-                            encryption: .winZipAES256(password: password)
-                        )
-                    }
+                    try operation(cancellation)
                     return WorkflowOutcome.success
+                } catch ZipError.cancelled {
+                    return WorkflowOutcome.cancelled
                 } catch FinderEncryptedArchiveCreationError.destinationExists {
                     return WorkflowOutcome.systemFailure(
                         "同名 ZIP 在操作过程中出现，原文件没有被覆盖。请重新执行右键加密压缩。"
@@ -115,7 +134,7 @@ final class ArchiveWorkflowController {
                     return WorkflowOutcome.systemFailure(error.localizedDescription)
                 }
             }.value
-            isBusy = false
+            operationCoordinator.end(.archive)
             progress.dismiss()
             handleCompletion(
                 outcome,
@@ -137,15 +156,24 @@ final class ArchiveWorkflowController {
         archivePanel.allowsMultipleSelection = false
         archivePanel.allowedContentTypes = [.zip]
         guard archivePanel.runModal() == .OK, let archive = archivePanel.url else {
-            isBusy = false
+            operationCoordinator.end(.archive)
             return
         }
 
-        progress.show(title: "正在读取 ZIP", detail: archive.lastPathComponent)
+        let cancellation = ZipOperationCancellation()
+        progress.show(
+            title: "正在读取 ZIP",
+            detail: archive.lastPathComponent,
+            onCancel: { cancellation.cancel() }
+        )
         Task {
             let listing = await Task.detached(priority: .userInitiated) {
                 do {
-                    return ListingOutcome.success(try ZipArchive.list(archive))
+                    return ListingOutcome.success(
+                        try ZipArchive.list(archive, cancellation: cancellation)
+                    )
+                } catch ZipError.cancelled {
+                    return ListingOutcome.cancelled
                 } catch let error as ZipError {
                     return ListingOutcome.zipFailure(error)
                 } catch {
@@ -158,18 +186,21 @@ final class ArchiveWorkflowController {
             switch listing {
             case .success(let listedEntries):
                 entries = listedEntries
+            case .cancelled:
+                operationCoordinator.end(.archive)
+                return
             case .zipFailure(let error):
-                isBusy = false
+                operationCoordinator.end(.archive)
                 presentError(error)
                 return
             case .systemFailure(let message):
-                isBusy = false
+                operationCoordinator.end(.archive)
                 presentErrorMessage(message)
                 return
             }
 
             guard !entries.isEmpty else {
-                isBusy = false
+                operationCoordinator.end(.archive)
                 presentErrorMessage("这个 ZIP 中没有可解压的内容。")
                 return
             }
@@ -177,7 +208,7 @@ final class ArchiveWorkflowController {
             let password: String?
             if entries.contains(where: \.isEncrypted) {
                 guard let supplied = PasswordPrompt.requestExistingPassword() else {
-                    isBusy = false
+                    operationCoordinator.end(.archive)
                     return
                 }
                 password = supplied
@@ -194,7 +225,7 @@ final class ArchiveWorkflowController {
             destinationPanel.allowsMultipleSelection = false
             destinationPanel.directoryURL = archive.deletingLastPathComponent()
             guard destinationPanel.runModal() == .OK, let parent = destinationPanel.url else {
-                isBusy = false
+                operationCoordinator.end(.archive)
                 return
             }
 
@@ -202,18 +233,29 @@ final class ArchiveWorkflowController {
                 below: parent,
                 preferredName: archive.deletingPathExtension().lastPathComponent
             )
-            progress.show(title: "正在解压 ZIP", detail: archive.lastPathComponent)
+            progress.show(
+                title: "正在解压 ZIP",
+                detail: archive.lastPathComponent,
+                onCancel: { cancellation.cancel() }
+            )
             let outcome = await Task.detached(priority: .userInitiated) {
                 do {
-                    try ZipArchive.extract(archive, to: destination, password: password)
+                    try ZipArchive.extract(
+                        archive,
+                        to: destination,
+                        password: password,
+                        cancellation: cancellation
+                    )
                     return WorkflowOutcome.success
+                } catch ZipError.cancelled {
+                    return WorkflowOutcome.cancelled
                 } catch let error as ZipError {
                     return WorkflowOutcome.zipFailure(error)
                 } catch {
                     return WorkflowOutcome.systemFailure(error.localizedDescription)
                 }
             }.value
-            isBusy = false
+            operationCoordinator.end(.archive)
             progress.dismiss()
             handleCompletion(
                 outcome,
@@ -224,36 +266,20 @@ final class ArchiveWorkflowController {
         }
     }
 
-    func showHelp() {
-        NSApp.activate(ignoringOtherApps: true)
-        let alert = NSAlert()
-        alert.messageText = "aulycZip 使用说明"
-        alert.informativeText = """
-        创建加密 ZIP：使用 WinZip AES-256（AE-2）加密文件内容，可与 WinZip、7-Zip、Keka 互操作。
-
-        ZIP 标准不会隐藏文件名：即使内容已加密，打开压缩包仍可能看到其中的文件和目录名称。若名称也敏感，可先用 Finder 自带功能压缩成一个普通 ZIP，再将这个 ZIP 作为单个文件加密压缩。
-
-        密码不会保存，也不会写入日志。忘记密码后无法恢复。
-        """
-        alert.addButton(withTitle: "知道了")
-        alert.runModal()
-    }
-
     func showAbout() {
         aboutWindowController.show()
     }
 
     private func beginUserFlow() -> Bool {
         NSApp.activate(ignoringOtherApps: true)
-        guard !isBusy else {
+        guard operationCoordinator.begin(.archive) else {
             let alert = NSAlert()
             alert.alertStyle = .informational
             alert.messageText = "已有任务正在进行"
-            alert.informativeText = "请等待当前压缩或解压任务完成。"
+            alert.informativeText = "请等待当前压缩、解压或更新替换完成。"
             alert.runModal()
             return false
         }
-        isBusy = true
         return true
     }
 
@@ -295,6 +321,8 @@ final class ArchiveWorkflowController {
             if alert.runModal() == .alertFirstButtonReturn {
                 NSWorkspace.shared.activateFileViewerSelecting([reveal])
             }
+        case .cancelled:
+            break
         case .zipFailure(let error):
             presentError(error)
         case .systemFailure(let message):
@@ -319,12 +347,16 @@ final class ArchiveWorkflowController {
             message = "存在重复文件名：\(path)"
         case .destinationMatchesSource:
             message = "输出 ZIP 不能覆盖作为输入的文件，请换一个文件名或保存位置。"
+        case .destinationAlreadyExists:
+            message = "目标位置已经存在同名文件或文件夹，未执行覆盖。"
         case .unsupportedFeature(let reason):
             message = "暂不支持这个 ZIP：\(reason)"
         case .invalidArchive(let reason):
             message = "ZIP 格式无效：\(reason)"
         case .truncatedArchive:
             message = "ZIP 数据不完整，文件可能已损坏。"
+        case .cancelled:
+            message = "操作已取消，临时文件已经清理。"
         }
         presentErrorMessage(message)
     }

@@ -9,10 +9,12 @@ struct BinaryCodingTests {
         var data = Data()
         data.appendLittleEndian(UInt16(0x1234))
         data.appendLittleEndian(UInt32(0x89ABCDEF))
+        data.appendLittleEndian(UInt64(0x0123_4567_89AB_CDEF))
 
         var cursor = ByteCursor(data: data)
         #expect(try cursor.readUInt16() == 0x1234)
         #expect(try cursor.readUInt32() == 0x89ABCDEF)
+        #expect(try cursor.readUInt64() == 0x0123_4567_89AB_CDEF)
         #expect(cursor.remainingCount == 0)
     }
 

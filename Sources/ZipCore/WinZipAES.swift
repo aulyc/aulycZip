@@ -52,11 +52,19 @@ struct AESBlockCipher {
             throw ZipError.invalidArchive("AES block must be 16 bytes")
         }
 
-        var output = Data(repeating: 0, count: kCCBlockSizeAES128)
+        return try encrypt(blocks: block)
+    }
+
+    func encrypt(blocks: Data) throws -> Data {
+        guard !blocks.isEmpty, blocks.count.isMultiple(of: kCCBlockSizeAES128) else {
+            throw ZipError.invalidArchive("AES input must contain complete blocks")
+        }
+
+        var output = Data(repeating: 0, count: blocks.count)
         var bytesMoved = 0
         let outputCount = output.count
         let status = output.withUnsafeMutableBytes { outputBytes in
-            block.withUnsafeBytes { blockBytes in
+            blocks.withUnsafeBytes { blockBytes in
                 key.withUnsafeBytes { keyBytes in
                     CCCrypt(
                         CCOperation(kCCEncrypt),
@@ -66,7 +74,7 @@ struct AESBlockCipher {
                         key.count,
                         nil,
                         blockBytes.baseAddress,
-                        block.count,
+                        blocks.count,
                         outputBytes.baseAddress,
                         outputCount,
                         &bytesMoved
@@ -74,7 +82,7 @@ struct AESBlockCipher {
                 }
             }
         }
-        guard status == kCCSuccess, bytesMoved == kCCBlockSizeAES128 else {
+        guard status == kCCSuccess, bytesMoved == blocks.count else {
             throw ZipError.invalidArchive("AES block encryption failed")
         }
         return output
@@ -92,13 +100,32 @@ struct WinZipAESCTR {
     }
 
     mutating func update<D: DataProtocol>(_ input: D) throws -> Data {
-        var output = Data(capacity: input.count)
-        for byte in input {
+        let contiguous = Data(input)
+        var output = Data(repeating: 0, count: contiguous.count)
+        var inputOffset = 0
+        while inputOffset < contiguous.count {
             if keyStreamOffset == keyStream.count {
                 try refillKeyStream()
             }
-            output.append(byte ^ keyStream[keyStreamOffset])
-            keyStreamOffset += 1
+            let count = min(
+                contiguous.count - inputOffset,
+                keyStream.count - keyStreamOffset
+            )
+            output.withUnsafeMutableBytes { outputBytes in
+                contiguous.withUnsafeBytes { inputBytes in
+                    keyStream.withUnsafeBytes { keyStreamBytes in
+                        let outputBase = outputBytes.bindMemory(to: UInt8.self).baseAddress!
+                        let inputBase = inputBytes.bindMemory(to: UInt8.self).baseAddress!
+                        let keyStreamBase = keyStreamBytes.bindMemory(to: UInt8.self).baseAddress!
+                        for index in 0..<count {
+                            outputBase[inputOffset + index] = inputBase[inputOffset + index]
+                                ^ keyStreamBase[keyStreamOffset + index]
+                        }
+                    }
+                }
+            }
+            inputOffset += count
+            keyStreamOffset += count
         }
         return output
     }
@@ -107,12 +134,16 @@ struct WinZipAESCTR {
         guard counter != 0 else {
             throw ZipError.unsupportedFeature("WinZip AES counter exhausted")
         }
-        var block = Data()
-        block.appendLittleEndian(counter)
-        block.append(Data(repeating: 0, count: kCCBlockSizeAES128 - MemoryLayout<UInt32>.size))
-        keyStream = try cipher.encrypt(block: block)
+        let remainingBlocks = UInt64(UInt32.max) - UInt64(counter) + 1
+        let blockCount = Int(min(4_096, remainingBlocks))
+        var blocks = Data(capacity: blockCount * kCCBlockSizeAES128)
+        for _ in 0..<blockCount {
+            blocks.appendLittleEndian(counter)
+            blocks.append(Data(repeating: 0, count: kCCBlockSizeAES128 - MemoryLayout<UInt32>.size))
+            counter &+= 1
+        }
+        keyStream = try cipher.encrypt(blocks: blocks)
         keyStreamOffset = 0
-        counter &+= 1
     }
 }
 
