@@ -19,7 +19,7 @@ private enum ListingOutcome: Sendable {
 
 @MainActor
 final class ArchiveWorkflowController {
-    private let progress = OperationProgressPanelController()
+    private let progress = ProgressPanelController()
     private let aboutWindowController = AboutWindowController()
     private let operationCoordinator: AppOperationCoordinator
 
@@ -53,6 +53,9 @@ final class ArchiveWorkflowController {
             operationCoordinator.end(.archive)
             return
         }
+        let destinationPolicy: ZipCreationDestinationPolicy = FileManager.default.fileExists(
+            atPath: destination.path
+        ) ? .replaceExisting : .refuseExisting
 
         guard let password = PasswordPrompt.requestNewPassword() else {
             operationCoordinator.end(.archive)
@@ -61,6 +64,7 @@ final class ArchiveWorkflowController {
         startMenuEncryptedCreation(
             sourceURLs: sourcePanel.urls,
             destination: destination,
+            destinationPolicy: destinationPolicy,
             password: password
         )
     }
@@ -85,6 +89,7 @@ final class ArchiveWorkflowController {
     private func startMenuEncryptedCreation(
         sourceURLs: [URL],
         destination: URL,
+        destinationPolicy: ZipCreationDestinationPolicy,
         password: String
     ) {
         performEncryptedCreation(destination: destination) { cancellation in
@@ -92,6 +97,7 @@ final class ArchiveWorkflowController {
                 at: destination,
                 contentsOf: sourceURLs,
                 encryption: .winZipAES256(password: password),
+                destinationPolicy: destinationPolicy,
                 cancellation: cancellation
             )
         }
@@ -112,7 +118,7 @@ final class ArchiveWorkflowController {
         operation: @escaping @Sendable (ZipOperationCancellation) throws -> Void
     ) {
         let cancellation = ZipOperationCancellation()
-        progress.show(
+        progress.showOperation(
             title: "正在创建加密 ZIP",
             detail: destination.lastPathComponent,
             onCancel: { cancellation.cancel() }
@@ -161,7 +167,7 @@ final class ArchiveWorkflowController {
         }
 
         let cancellation = ZipOperationCancellation()
-        progress.show(
+        progress.showOperation(
             title: "正在读取 ZIP",
             detail: archive.lastPathComponent,
             onCancel: { cancellation.cancel() }
@@ -233,7 +239,7 @@ final class ArchiveWorkflowController {
                 below: parent,
                 preferredName: archive.deletingPathExtension().lastPathComponent
             )
-            progress.show(
+            progress.showOperation(
                 title: "正在解压 ZIP",
                 detail: archive.lastPathComponent,
                 onCancel: { cancellation.cancel() }

@@ -14,7 +14,6 @@ struct FinderArchiveRequestTests {
 
             #expect(request.sourceURLs == [source.standardizedFileURL])
             #expect(request.destinationURL == fixture.root.appendingPathComponent("报告 加密.zip"))
-            #expect(request.selectionSummary == "报告.pdf")
             #expect(request.targetSummary == source.standardizedFileURL.path)
         }
     }
@@ -34,36 +33,6 @@ struct FinderArchiveRequestTests {
             )
 
             #expect(request.destinationURL == otherDirectory.appendingPathComponent("报告 加密 2.zip"))
-        }
-    }
-
-    @Test("the source directory is available for the confirmation prompt")
-    func sourceDirectorySummary() throws {
-        try withFinderFixture { fixture in
-            let source = fixture.root.appendingPathComponent("报告.pdf")
-            try Data().write(to: source)
-
-            let request = try FinderArchiveRequest(sourceURLs: [source])
-
-            #expect(request.sourceDirectorySummary == fixture.root.path)
-        }
-    }
-
-    @Test("source files from different folders show every involved directory")
-    func multipleSourceDirectorySummary() throws {
-        try withFinderFixture { fixture in
-            let firstDirectory = fixture.root.appendingPathComponent("甲", isDirectory: true)
-            let secondDirectory = fixture.root.appendingPathComponent("乙", isDirectory: true)
-            try FileManager.default.createDirectory(at: firstDirectory, withIntermediateDirectories: true)
-            try FileManager.default.createDirectory(at: secondDirectory, withIntermediateDirectories: true)
-            let first = firstDirectory.appendingPathComponent("a.txt")
-            let second = secondDirectory.appendingPathComponent("b.txt")
-            try Data().write(to: first)
-            try Data().write(to: second)
-
-            let request = try FinderArchiveRequest(sourceURLs: [first, second])
-
-            #expect(request.sourceDirectorySummary == "\(firstDirectory.path)、\(secondDirectory.path)")
         }
     }
 
@@ -125,7 +94,6 @@ struct FinderArchiveRequestTests {
 
             let request = try FinderArchiveRequest(sourceURLs: sources)
 
-            #expect(request.selectionSummary == "a.txt、b.txt 等 4 项")
             #expect(request.targetSummary == "\(sources[0].path)、\(sources[1].path) 等 4 项")
         }
     }

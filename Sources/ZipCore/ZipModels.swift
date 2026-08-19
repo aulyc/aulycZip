@@ -29,6 +29,14 @@ public enum ZipCreationEncryption: Sendable {
     case winZipAES256(password: String)
 }
 
+/// Controls whether archive creation may replace an existing regular file.
+/// The default keeps creation non-destructive unless the caller has obtained
+/// explicit replacement confirmation from the user.
+public enum ZipCreationDestinationPolicy: Sendable {
+    case refuseExisting
+    case replaceExisting
+}
+
 public struct ZipExtractionLimits: Equatable, Sendable {
     public static let standard = ZipExtractionLimits(
         maximumEntryCount: 100_000,

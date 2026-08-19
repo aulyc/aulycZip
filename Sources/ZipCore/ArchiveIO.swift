@@ -102,6 +102,20 @@ enum ArchiveFileIO {
         return try FileHandle(forWritingTo: url)
     }
 
+    /// The containing work directory remains owner-only while the archive is
+    /// built. Default file attributes are intentional here so the completed
+    /// user-facing archive inherits the process umask after its atomic move.
+    static func createArchiveOutputFile(at url: URL) throws -> FileHandle {
+        guard FileManager.default.createFile(
+            atPath: url.path,
+            contents: nil,
+            attributes: nil
+        ) else {
+            throw ZipError.invalidArchive("Unable to create temporary archive file")
+        }
+        return try FileHandle(forWritingTo: url)
+    }
+
     static func copy(
         from source: URL,
         to destination: FileHandle,

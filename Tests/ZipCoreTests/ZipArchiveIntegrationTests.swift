@@ -151,6 +151,141 @@ struct ZipArchiveIntegrationTests {
         }
     }
 
+    @Test("archive creation refuses an existing destination by default")
+    func creationRefusesExistingDestinationByDefault() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("new.txt")
+            let existing = Data("existing archive must survive".utf8)
+            try Data("new archive content".utf8).write(to: source)
+            try existing.write(to: fixture.archive)
+
+            #expect(throws: ZipError.destinationAlreadyExists(fixture.archive.path)) {
+                try ZipArchive.create(
+                    at: fixture.archive,
+                    contentsOf: [source],
+                    encryption: .none
+                )
+            }
+            #expect(try Data(contentsOf: fixture.archive) == existing)
+        }
+    }
+
+    @Test("a newly created archive follows the process default file permissions")
+    func creationUsesDefaultFilePermissions() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("new.txt")
+            let reference = fixture.root.appendingPathComponent("default-permissions-reference")
+            try Data("new archive content".utf8).write(to: source)
+            #expect(FileManager.default.createFile(atPath: reference.path, contents: Data()))
+            let expectedPermissions = try posixPermissions(at: reference)
+
+            try ZipArchive.create(
+                at: fixture.archive,
+                contentsOf: [source],
+                encryption: .none
+            )
+
+            #expect(try posixPermissions(at: fixture.archive) == expectedPermissions)
+        }
+    }
+
+    @Test("explicit replacement atomically replaces an existing archive")
+    func creationReplacesExistingDestinationWhenAuthorized() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("new.txt")
+            try Data("new archive content".utf8).write(to: source)
+            #expect(FileManager.default.createFile(
+                atPath: fixture.archive.path,
+                contents: Data("old archive content".utf8)
+            ))
+            let expectedPermissions = try posixPermissions(at: fixture.archive)
+
+            try ZipArchive.create(
+                at: fixture.archive,
+                contentsOf: [source],
+                encryption: .none,
+                destinationPolicy: .replaceExisting
+            )
+
+            #expect(try ZipArchive.list(fixture.archive).map(\.path) == ["new.txt"])
+            #expect(try posixPermissions(at: fixture.archive) == expectedPermissions)
+        }
+    }
+
+    @Test("cancelling an authorized replacement preserves the existing archive")
+    func cancelledReplacementPreservesExistingDestination() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("new.txt")
+            let existing = Data("existing archive must survive cancellation".utf8)
+            try Data("new archive content".utf8).write(to: source)
+            try existing.write(to: fixture.archive)
+            let cancellation = ZipOperationCancellation()
+            cancellation.cancel()
+
+            #expect(throws: ZipError.cancelled) {
+                try ZipArchive.create(
+                    at: fixture.archive,
+                    contentsOf: [source],
+                    encryption: .none,
+                    destinationPolicy: .replaceExisting,
+                    cancellation: cancellation
+                )
+            }
+            #expect(try Data(contentsOf: fixture.archive) == existing)
+        }
+    }
+
+    @Test("authorized replacement never replaces a directory")
+    func replacementRefusesDirectoryDestination() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("new.txt")
+            try Data("new archive content".utf8).write(to: source)
+            try FileManager.default.createDirectory(
+                at: fixture.archive,
+                withIntermediateDirectories: false
+            )
+            let marker = fixture.archive.appendingPathComponent("keep.txt")
+            try Data("keep directory".utf8).write(to: marker)
+
+            #expect(throws: ZipError.destinationAlreadyExists(fixture.archive.path)) {
+                try ZipArchive.create(
+                    at: fixture.archive,
+                    contentsOf: [source],
+                    encryption: .none,
+                    destinationPolicy: .replaceExisting
+                )
+            }
+            #expect(try Data(contentsOf: marker) == Data("keep directory".utf8))
+        }
+    }
+
+    @Test("authorized replacement never follows a symbolic-link destination")
+    func replacementRefusesSymbolicLinkDestination() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("new.txt")
+            let outside = fixture.root.appendingPathComponent("outside.zip")
+            let existing = Data("outside archive must survive".utf8)
+            try Data("new archive content".utf8).write(to: source)
+            try existing.write(to: outside)
+            try FileManager.default.createSymbolicLink(
+                at: fixture.archive,
+                withDestinationURL: outside
+            )
+
+            #expect(throws: ZipError.destinationAlreadyExists(fixture.archive.path)) {
+                try ZipArchive.create(
+                    at: fixture.archive,
+                    contentsOf: [source],
+                    encryption: .none,
+                    destinationPolicy: .replaceExisting
+                )
+            }
+            let values = try fixture.archive.resourceValues(forKeys: [.isSymbolicLinkKey])
+            #expect(values.isSymbolicLink == true)
+            #expect(try Data(contentsOf: outside) == existing)
+        }
+    }
+
     @Test("a symbolic-link destination root is rejected")
     func rejectsSymbolicLinkDestinationRoot() throws {
         try withFixture { fixture in
@@ -166,6 +301,29 @@ struct ZipArchiveIntegrationTests {
                 try ZipArchive.extract(fixture.archive, to: fixture.output)
             }
             #expect(!FileManager.default.fileExists(atPath: outside.appendingPathComponent("safe.txt").path))
+        }
+    }
+
+    @Test("extraction keeps plaintext owner-only and does not restore execute bits")
+    func extractionUsesOwnerOnlyPermissions() throws {
+        try withFixture { fixture in
+            let folder = fixture.source.appendingPathComponent("payload", isDirectory: true)
+            let executable = folder.appendingPathComponent("run.sh")
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
+            try Data("#!/bin/sh\nexit 0\n".utf8).write(to: executable)
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o755],
+                ofItemAtPath: executable.path
+            )
+            try ZipArchive.create(at: fixture.archive, contentsOf: [folder], encryption: .none)
+
+            try ZipArchive.extract(fixture.archive, to: fixture.output)
+
+            let restoredFolder = fixture.output.appendingPathComponent("payload", isDirectory: true)
+            let restoredFile = restoredFolder.appendingPathComponent("run.sh")
+            #expect(try posixPermissions(at: fixture.output) == 0o700)
+            #expect(try posixPermissions(at: restoredFolder) == 0o700)
+            #expect(try posixPermissions(at: restoredFile) == 0o600)
         }
     }
 
@@ -295,8 +453,8 @@ struct ZipArchiveIntegrationTests {
         }
     }
 
-    @Test("actual streamed output is limited and no final directory remains")
-    func actualOutputLimitIsTransactional() throws {
+    @Test("declared entry size limits actual streamed output")
+    func declaredEntrySizeLimitsActualOutput() throws {
         try withFixture { fixture in
             let source = fixture.source.appendingPathComponent("large.txt")
             try Data(repeating: 0x41, count: 64 * 1024).write(to: source)
@@ -309,15 +467,7 @@ struct ZipArchiveIntegrationTests {
             try bytes.write(to: fixture.archive)
 
             #expect(throws: ZipError.outputLimitExceeded) {
-                try ZipArchive.extract(
-                    fixture.archive,
-                    to: fixture.output,
-                    limits: ZipExtractionLimits(
-                        maximumEntryCount: 100,
-                        maximumEntryUncompressedSize: 1_024,
-                        maximumTotalUncompressedSize: 1_024
-                    )
-                )
+                try ZipArchive.extract(fixture.archive, to: fixture.output)
             }
             #expect(!FileManager.default.fileExists(atPath: fixture.output.path))
         }
@@ -652,6 +802,14 @@ private func replaceAll(_ old: Data, with replacement: Data, in data: inout Data
             data.replaceSubrange(offset..<(offset + old.count), with: replacement)
         }
     }
+}
+
+private func posixPermissions(at url: URL) throws -> Int {
+    let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+    guard let permissions = attributes[.posixPermissions] as? NSNumber else {
+        throw ZipError.invalidArchive("POSIX permissions are unavailable for test fixture")
+    }
+    return permissions.intValue & 0o7777
 }
 
 private extension Data {

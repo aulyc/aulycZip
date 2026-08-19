@@ -12,6 +12,21 @@
 
 测试发布目前为 `N/A`。本地 ad-hoc bundle、候选构建和正式产物不能互相改名替代。
 
+## 中央规范依赖
+
+正式发布命令依赖公开的
+[`aulyc/codex-engineering-standards`](https://github.com/aulyc/codex-engineering-standards)
+检出目录。仓库不提供个人机器路径或隐式回退；运行发布门禁前必须显式设置：
+
+```bash
+export STANDARDS_ROOT=/absolute/path/to/codex-engineering-standards
+```
+
+`.codex/standards.json` 固定本项目采用的 Core、`macos-arm64-app` Profile 和
+`aulyc-dual-mirror-v1` Policy 版本。每个入口会先验证 `STANDARDS_ROOT` 及所需
+中央脚本，中央扫描器再验证采用版本、项目登记和发布渠道映射；依赖缺失或不匹配
+时发布流程会在改动版本、标签或远端之前失败。
+
 ## 正式发布命令
 
 先提交全部功能、测试、文档和治理改动，并保持工作区干净。中央登记和两个公开

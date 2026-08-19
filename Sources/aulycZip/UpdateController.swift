@@ -11,7 +11,7 @@ final class UpdateController {
 
     private let manifestLoader: UpdateManifestLoader
     private let operationCoordinator: AppOperationCoordinator
-    private let progressPanel = UpdateProgressPanelController()
+    private let progressPanel = ProgressPanelController()
     private let lastCheckKey = "aulycZip.lastUpdateCheckAt"
     private var isBusy = false
 
@@ -141,7 +141,7 @@ final class UpdateController {
         }
         isBusy = true
         UpdateInstaller.cleanStaleArtifacts()
-        progressPanel.show(message: "正在验证发布信息")
+        progressPanel.showUpdate(message: "正在验证发布信息")
 
         UpdateInstaller.shared.downloadProvenance(
             from: manifest.orderedProvenanceURLs,
@@ -240,7 +240,7 @@ final class UpdateController {
     private func finishWithFailure(stage: String, error: Error, releasePageURL: URL) {
         isBusy = false
         operationCoordinator.end(.updateReplacement)
-        progressPanel.close()
+        progressPanel.dismiss()
         Self.logFailure(stage: stage, error: error)
         showInstallFailure(error, releasePageURL: releasePageURL)
     }

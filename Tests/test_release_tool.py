@@ -1,6 +1,8 @@
 import importlib.util
 import json
+import os
 import plistlib
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -16,6 +18,35 @@ SPEC.loader.exec_module(release_tool)
 
 
 class ReleaseToolTests(unittest.TestCase):
+    def test_standards_check_requires_explicit_dependency_root(self):
+        environment = os.environ.copy()
+        environment.pop("STANDARDS_ROOT", None)
+        result = subprocess.run(
+            ["bash", str(PROJECT_ROOT / "scripts" / "standards-check.sh")],
+            cwd=PROJECT_ROOT,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 64)
+        self.assertIn("STANDARDS_ROOT is required", result.stderr)
+
+    def test_standards_check_rejects_incomplete_dependency_root(self):
+        with tempfile.TemporaryDirectory() as directory:
+            environment = os.environ.copy()
+            environment["STANDARDS_ROOT"] = directory
+            result = subprocess.run(
+                ["bash", str(PROJECT_ROOT / "scripts" / "standards-check.sh")],
+                cwd=PROJECT_ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        self.assertEqual(result.returncode, 66)
+        self.assertIn("central standards dependency is missing", result.stderr)
+
     def test_version_source_is_current_project_plist(self):
         with (PROJECT_ROOT / "Config" / "Info.plist").open("rb") as handle:
             plist = plistlib.load(handle)
@@ -62,6 +93,10 @@ class ReleaseToolTests(unittest.TestCase):
     def test_publication_orders_source_push_before_mirrors(self):
         script = (PROJECT_ROOT / "scripts" / "publish-release.sh").read_text(
             encoding="utf-8"
+        )
+        self.assertLess(
+            script.index("standards_check.py"),
+            script.index("formal_release_git.py\" push"),
         )
         self.assertLess(
             script.index("formal_release_git.py\" push"),

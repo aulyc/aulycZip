@@ -8,7 +8,6 @@ let package = Package(
         .macOS(.v14),
     ],
     products: [
-        .library(name: "ZipCore", targets: ["ZipCore"]),
         .executable(name: "aulycZip", targets: ["aulycZip"]),
     ],
     targets: [

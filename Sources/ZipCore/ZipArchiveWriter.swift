@@ -34,6 +34,7 @@ struct ZipArchiveWriter {
         at destination: URL,
         contentsOf sourceURLs: [URL],
         encryption: ZipCreationEncryption,
+        destinationPolicy: ZipCreationDestinationPolicy = .refuseExisting,
         options: ZipArchiveWriterOptions = ZipArchiveWriterOptions(),
         cancellation: ZipOperationCancellation? = nil
     ) throws {
@@ -53,8 +54,13 @@ struct ZipArchiveWriter {
         let fileManager = FileManager.default
         let parent = destination.deletingLastPathComponent()
         try fileManager.createDirectory(at: parent, withIntermediateDirectories: true)
-        guard !fileManager.fileExists(atPath: destination.path) else {
-            throw ZipError.destinationAlreadyExists(destination.path)
+        if fileManager.fileExists(atPath: destination.path) {
+            switch destinationPolicy {
+            case .refuseExisting:
+                throw ZipError.destinationAlreadyExists(destination.path)
+            case .replaceExisting:
+                try validateReplacementTarget(destination)
+            }
         }
 
         let work = parent.appendingPathComponent(
@@ -65,7 +71,7 @@ struct ZipArchiveWriter {
         defer { try? fileManager.removeItem(at: work) }
         let archiveURL = work.appendingPathComponent("archive.tmp")
         let centralURL = work.appendingPathComponent("central.tmp")
-        let archive = try ArchiveFileIO.createPrivateFile(at: archiveURL)
+        let archive = try ArchiveFileIO.createArchiveOutputFile(at: archiveURL)
         let central = try ArchiveFileIO.createPrivateFile(at: centralURL)
         var archiveIsOpen = true
         var centralIsOpen = true
@@ -240,10 +246,31 @@ struct ZipArchiveWriter {
         archiveIsOpen = false
 
         try cancellation?.check()
-        guard !fileManager.fileExists(atPath: destination.path) else {
+        if fileManager.fileExists(atPath: destination.path) {
+            switch destinationPolicy {
+            case .refuseExisting:
+                throw ZipError.destinationAlreadyExists(destination.path)
+            case .replaceExisting:
+                try validateReplacementTarget(destination)
+                _ = try fileManager.replaceItemAt(
+                    destination,
+                    withItemAt: archiveURL,
+                    backupItemName: nil,
+                    options: [.usingNewMetadataOnly]
+                )
+            }
+        } else {
+            try fileManager.moveItem(at: archiveURL, to: destination)
+        }
+    }
+
+    private static func validateReplacementTarget(_ destination: URL) throws {
+        let values = try destination.resourceValues(
+            forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+        )
+        guard values.isRegularFile == true, values.isSymbolicLink != true else {
             throw ZipError.destinationAlreadyExists(destination.path)
         }
-        try fileManager.moveItem(at: archiveURL, to: destination)
     }
 
     private static func makePayload(

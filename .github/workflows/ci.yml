@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "23 19 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,9 +17,27 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
+      - name: Install external ZIP compatibility tool
+        run: |
+          brew install sevenzip
+          echo "AULYCZIP_7ZZ=$(brew --prefix)/bin/7zz" >> "$GITHUB_ENV"
       - name: Verify source, tests, and arm64 release build
         run: bash scripts/compile-check.sh
       - name: Verify local application bundle
         run: bash scripts/bundle.sh --debug
       - name: Confirm build did not rewrite source
         run: git diff --exit-code
+
+  streaming-benchmark:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify release streaming round trip and memory ceiling
+        env:
+          AULYCZIP_BENCHMARK_BYTES: "209715200"
+          AULYCZIP_BENCHMARK_MAX_RSS_BYTES: "201326592"
+          AULYCZIP_BENCHMARK_MAX_CREATE_SECONDS: "30"
+          AULYCZIP_BENCHMARK_MAX_EXTRACT_SECONDS: "30"
+        run: bash scripts/benchmark-zipcore.sh

@@ -1,9 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
-STANDARDS_ROOT="${STANDARDS_ROOT:-/Users/crp/Projects/Codex 开发规范}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+source "$ROOT/scripts/standards-dependency.sh"
+require_standards_root \
+    standards/version.json \
+    scripts/dual_mirror_release.py
 TOOL="$STANDARDS_ROOT/scripts/dual_mirror_release.py"
-[[ -f "$TOOL" ]] || { echo "error: central dual-mirror tool is unavailable" >&2; exit 1; }
 
 PHASE="${1:?usage: dual-mirror-release.sh <phase> [arguments...]}"
 shift

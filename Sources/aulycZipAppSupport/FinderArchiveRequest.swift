@@ -10,34 +10,12 @@ public struct FinderArchiveRequest: Equatable, Sendable {
     public let sourceURLs: [URL]
     public let destinationURL: URL
 
-    public var selectionSummary: String {
-        let names = sourceURLs.map { url in
-            url.lastPathComponent.isEmpty ? url.path : url.lastPathComponent
-        }
-        guard names.count > 3 else {
-            return names.joined(separator: "、")
-        }
-        return "\(names[0])、\(names[1]) 等 \(names.count) 项"
-    }
-
     public var targetSummary: String {
         let paths = sourceURLs.map(\.path)
         guard paths.count > 2 else {
             return paths.joined(separator: "、")
         }
         return "\(paths[0])、\(paths[1]) 等 \(paths.count) 项"
-    }
-
-    public var sourceDirectorySummary: String {
-        var seenPaths = Set<String>()
-        let paths = sourceURLs.compactMap { url -> String? in
-            let path = url.deletingLastPathComponent().path
-            return seenPaths.insert(path).inserted ? path : nil
-        }
-        guard paths.count > 2 else {
-            return paths.joined(separator: "、")
-        }
-        return "\(paths[0])、\(paths[1]) 等 \(paths.count) 个目录"
     }
 
     public init(

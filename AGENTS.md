@@ -49,6 +49,7 @@ bash scripts/bundle.sh --debug
 
 ## Release gates
 
+- 中央规范仓库必须单独检出，并通过 `STANDARDS_ROOT=/absolute/path/to/codex-engineering-standards` 显式提供；发布入口不使用个人机器绝对路径或隐式回退
 - 中央严格门禁与 Developer ID 候选：`make release-check DEVELOPER_ID_APPLICATION='Developer ID Application: ...'`
 - 创建或验证 annotated tag：`make release-tag`
 - 精确标签隔离构建、DMG 签名、公证和 provenance：`make release-formal DEVELOPER_ID_APPLICATION='Developer ID Application: ...' NOTARY_PROFILE=...`

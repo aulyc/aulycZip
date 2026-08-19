@@ -21,6 +21,18 @@ struct ZipCoreBenchmarkTests {
             ProcessInfo.processInfo.environment["AULYCZIP_BENCHMARK_BYTES"]
                 .flatMap(UInt64.init) ?? 200 * 1024 * 1024
         )
+        let maximumPeakResidentBytes = Int64(
+            ProcessInfo.processInfo.environment["AULYCZIP_BENCHMARK_MAX_RSS_BYTES"]
+                .flatMap(Int64.init) ?? 192 * 1024 * 1024
+        )
+        let maximumCreateSeconds = Int64(
+            ProcessInfo.processInfo.environment["AULYCZIP_BENCHMARK_MAX_CREATE_SECONDS"]
+                .flatMap(Int64.init) ?? 30
+        )
+        let maximumExtractSeconds = Int64(
+            ProcessInfo.processInfo.environment["AULYCZIP_BENCHMARK_MAX_EXTRACT_SECONDS"]
+                .flatMap(Int64.init) ?? 30
+        )
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(
             "aulycZip-benchmark-\(UUID().uuidString)",
             isDirectory: true
@@ -54,9 +66,19 @@ struct ZipCoreBenchmarkTests {
         let peakResidentBytes = currentProcessPeakResidentBytes()
 
         let restored = output.appendingPathComponent("source.bin")
+        let archiveByteCount = UInt64(
+            try archive.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+        )
+        let minimumArchiveByteCount = byteCount - byteCount / 20
         #expect(try restored.resourceValues(forKeys: [.fileSizeKey]).fileSize == Int(byteCount))
+        #expect(archiveByteCount >= minimumArchiveByteCount)
+        #expect(peakResidentBytes > 0)
+        #expect(peakResidentBytes <= maximumPeakResidentBytes)
+        #expect(createDuration <= .seconds(maximumCreateSeconds))
+        #expect(extractDuration <= .seconds(maximumExtractSeconds))
         print(
-            "aulycZip benchmark bytes=\(byteCount) create=\(createDuration) "
+            "aulycZip benchmark bytes=\(byteCount) archive_bytes=\(archiveByteCount) "
+                + "create=\(createDuration) "
                 + "extract=\(extractDuration) process_peak_rss_bytes=\(peakResidentBytes)"
         )
     }
@@ -74,14 +96,46 @@ private func writeBenchmarkFile(at url: URL, byteCount: UInt64) throws {
     }
     let handle = try FileHandle(forWritingTo: url)
     defer { try? handle.close() }
-    let chunk = Data((0..<(1024 * 1024)).map {
-        UInt8(truncatingIfNeeded: (($0 &* 1_103_515_245) &+ 12_345) >> 16)
-    })
+    var generator = DeterministicHighEntropyGenerator()
     var remaining = byteCount
     while remaining > 0 {
-        let count = Int(min(UInt64(chunk.count), remaining))
-        try handle.write(contentsOf: chunk.prefix(count))
+        let count = Int(min(1024 * 1024, remaining))
+        var chunk = Data(count: count)
+        chunk.withUnsafeMutableBytes { buffer in
+            var offset = 0
+            while offset + MemoryLayout<UInt64>.size <= buffer.count {
+                buffer.storeBytes(
+                    of: generator.next().littleEndian,
+                    toByteOffset: offset,
+                    as: UInt64.self
+                )
+                offset += MemoryLayout<UInt64>.size
+            }
+            if offset < buffer.count {
+                var tail = generator.next()
+                while offset < buffer.count {
+                    buffer[offset] = UInt8(truncatingIfNeeded: tail)
+                    tail >>= 8
+                    offset += 1
+                }
+            }
+        }
+        try handle.write(contentsOf: chunk)
         remaining -= UInt64(count)
     }
     try handle.synchronize()
+}
+
+private struct DeterministicHighEntropyGenerator {
+    // Test-only SplitMix64 stream for reproducible incompressible input. It is
+    // never used for passwords, keys, salts, or other security decisions.
+    private var state: UInt64 = 0xA17C_21B5_4D8E_9307
+
+    mutating func next() -> UInt64 {
+        state &+= 0x9E37_79B9_7F4A_7C15
+        var value = state
+        value = (value ^ (value >> 30)) &* 0xBF58_476D_1CE4_E5B9
+        value = (value ^ (value >> 27)) &* 0x94D0_49BB_1331_11EB
+        return value ^ (value >> 31)
+    }
 }

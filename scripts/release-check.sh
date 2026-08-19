@@ -2,7 +2,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-STANDARDS_ROOT="${STANDARDS_ROOT:-/Users/crp/Projects/Codex 开发规范}"
+source "$ROOT/scripts/standards-dependency.sh"
+require_standards_root \
+    standards/version.json \
+    scripts/standards_check.py
 DEVELOPER_ID_APPLICATION="${DEVELOPER_ID_APPLICATION:?DEVELOPER_ID_APPLICATION is required}"
 cd "$ROOT"
 

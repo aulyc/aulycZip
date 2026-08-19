@@ -8,8 +8,8 @@
 - `ArchiveWorkflowController` 维护选择文件、保存位置、密码、进度和结果反馈
 - `FinderServiceProvider` 接收 Finder Services 传入的文件 URL
 - `FinderArchiveRequest` 校验右键选择并生成不覆盖现有文件的输出路径
-- `PasswordPrompt` 只在内存中接收密码，不保存、不记录
-- `OperationProgressPanelController` 提供可取消的非阻塞进度面板
+- `PasswordPrompt` 只负责编排密码请求；Finder 对话框、随机密码对话框和输入控件按职责拆分，密码只在内存中接收，不保存、不记录
+- `ProgressPanelController` 统一归档任务的可取消旋转进度与更新任务的确定/不确定进度条
 - `AppOperationCoordinator` 保证归档任务与更新替换互斥；检查更新本身不阻塞归档
 - `UpdateController` 编排自动/手动检查、用户提示、下载和退出前安装准备
 - `UpdateManifest` 固定 Schema v2、产品身份、镜像顺序和可信 URL
@@ -25,13 +25,14 @@ Schema、镜像顺序、SHA-256、provenance 和替换路径；提示与进度�
 
 `Sources/ZipCore` 不依赖 UI，也不启动外部进程：
 
-- `ArchiveIO` 提供基于 `FileHandle` 的 64 位有界读取和固定大小分块复制
-- `ZipArchiveWriter` 使用最终归档、单条目 payload、中央目录三层临时文件，按需写入 ZIP64 extra、ZIP64 EOCD 和 Locator
+- `ZipCore` 是应用内部的独立 Swift target，不作为 Swift Package library 产品发布；跨 target 的 `public` 声明服务于本仓库模块边界，不构成对外兼容承诺
+- `ArchiveIO` 提供基于 `FileHandle` 的 64 位有界读取和固定大小分块复制；工作目录为 `0700`，payload 与中央目录临时文件为 `0600`，最终归档临时文件在私有工作目录内遵循进程 `umask`
+- `ZipArchiveWriter` 使用最终归档、单条目 payload、中央目录三层临时文件，按需写入 ZIP64 extra、ZIP64 EOCD 和 Locator；默认拒绝现有目标，只有菜单栏保存面板确认后才在最终提交阶段原子替换普通文件
 - `ZipArchiveReader` 从文件尾部定位 EOCD/ZIP64 EOCD，流式解析中央目录并校验本地头与记录边界
 - `RawDeflateEncoder` / `RawDeflateDecoder` 使用系统 Compression 流式处理 Deflate
 - `WinZipAES` 使用系统 CommonCrypto 实现 WinZip AES 协议要求的 PBKDF2-HMAC-SHA1、AES-CTR 与认证
 - `WinZipAESCTR` 批量生成小端计数器 keystream；HMAC 与 CRC 均跨 chunk 增量计算
-- `SafeExtractionPath` 和 `ZipArchive` 负责路径预检、两遍 AES 认证/解密、staging 与最终原子提交
+- `SafeExtractionPath` 和 `ZipArchive` 负责路径预检、逐级符号链接检查、两遍 AES 认证/解密、staging 与最终原子提交
 
 常规创建和解压只保留当前 chunk、格式元数据及系统编解码状态。所有大小和偏移在内部使用 `UInt64`，仅当前实际分配的 chunk 转为 `Int`。
 

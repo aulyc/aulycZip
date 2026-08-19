@@ -67,26 +67,58 @@ struct ExternalCompatibilityTests {
             let source = fixture.source.appendingPathComponent("zip64-external.txt")
             let original = Data(String(repeating: "ZIP64 interoperability-", count: 1_000).utf8)
             try original.write(to: source)
-            try ZipArchiveWriter.create(
-                at: fixture.archive,
-                contentsOf: [source],
+            try assertSevenZipExtractsForcedZIP64(
+                sevenZip: sevenZip,
+                fixture: fixture,
+                source: source,
+                original: original,
+                encryption: .none,
+                password: nil
+            )
+            try assertSevenZipExtractsForcedZIP64(
+                sevenZip: sevenZip,
+                fixture: fixture,
+                source: source,
+                original: original,
                 encryption: .winZipAES256(password: "aulycZip-known-test-password"),
-                options: ZipArchiveWriterOptions(forceZIP64: true)
-            )
-
-            try run(
-                sevenZip,
-                arguments: [
-                    "x", fixture.archive.path, "-o\(fixture.externalOutput.path)",
-                    "-paulycZip-known-test-password", "-y",
-                ]
-            )
-            #expect(
-                try Data(contentsOf: fixture.externalOutput.appendingPathComponent("zip64-external.txt"))
-                    == original
+                password: "aulycZip-known-test-password"
             )
         }
     }
+}
+
+private func assertSevenZipExtractsForcedZIP64(
+    sevenZip: String,
+    fixture: CompatibilityFixture,
+    source: URL,
+    original: Data,
+    encryption: ZipCreationEncryption,
+    password: String?
+) throws {
+    try? FileManager.default.removeItem(at: fixture.archive)
+    try? FileManager.default.removeItem(at: fixture.externalOutput)
+    try FileManager.default.createDirectory(
+        at: fixture.externalOutput,
+        withIntermediateDirectories: true
+    )
+    try ZipArchiveWriter.create(
+        at: fixture.archive,
+        contentsOf: [source],
+        encryption: encryption,
+        options: ZipArchiveWriterOptions(forceZIP64: true)
+    )
+
+    var arguments = [
+        "x", fixture.archive.path, "-o\(fixture.externalOutput.path)", "-y",
+    ]
+    if let password {
+        arguments.append("-p\(password)")
+    }
+    try run(sevenZip, arguments: arguments)
+    #expect(
+        try Data(contentsOf: fixture.externalOutput.appendingPathComponent("zip64-external.txt"))
+            == original
+    )
 }
 
 private struct CompatibilityFixture {

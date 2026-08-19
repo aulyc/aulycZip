@@ -58,6 +58,8 @@
       "scripts/publish-update-mirrors.sh",
       "scripts/release-check.sh",
       "scripts/release_tool.py",
+      "scripts/standards-check.sh",
+      "scripts/standards-dependency.sh",
       "scripts/verify-artifact.sh",
       "scripts/verify-installed.sh"
     ],
@@ -305,19 +307,19 @@
   "trackedFiles": [
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "b93e3004bb4f6a4ab33c96ce70d45cdd26dcb0bc0c244b5faab433e6990b8f2d"
+      "sha256": "025beb1ac16bb5a1928de176cfaa8f679662e5ebbba0f8cdf6a2b609e80e1522"
     },
     {
       "path": "AGENTS.md",
-      "sha256": "0e286bd904c31c4a610f29c52a1469f372abbe40dfef5c73bd1b9c455eff4fcb"
+      "sha256": "424e35c907c69ab8338f7c1a022fe405bd9a6d82ead7ac3bebc1a8b0b7ad50e0"
     },
     {
       "path": "Makefile",
-      "sha256": "19313895de33c7af3afc02c27047f2a062b6b55bd14c5dc59a33962359bf009b"
+      "sha256": "3d27fb36fedfef737a54a9d0076664073114c2b96d0ac1a1656733a3f7eaaa4e"
     },
     {
       "path": "Sources/aulycZip/UpdateController.swift",
-      "sha256": "969b92fef59af9b93465433da6718fd62f943cb0ce5a4fde87488ff21a9d3ccf"
+      "sha256": "304733dc6591a161edf4a7e71215684a980d8303afdcf5907c33dd233df56ff5"
     },
     {
       "path": "Sources/aulycZipAppSupport/UpdateInstaller.swift",
@@ -333,7 +335,7 @@
     },
     {
       "path": "Tests/test_release_tool.py",
-      "sha256": "1ffe1fcdf8afb01dad2a93c8950ea6654035285a3f98c3cb791c866f6671d614"
+      "sha256": "a51f784d18decbd05454f17cdd2070f537388727a5db7f59b6be6f55a2138ee8"
     },
     {
       "path": "docs/DUAL_MIRROR_RELEASE.md",
@@ -341,7 +343,7 @@
     },
     {
       "path": "docs/RELEASE.md",
-      "sha256": "8f454d6fc63864538dab254bf416dbef4cd3c5bc7d609aaccb4a3360cc72e7e9"
+      "sha256": "3a78022f20e331778ef9c0d37eae84d27a73ff3c8faec6d047f55cf0abc43e34"
     },
     {
       "path": "scripts/bundle.sh",
@@ -357,7 +359,7 @@
     },
     {
       "path": "scripts/dual-mirror-release.sh",
-      "sha256": "0346bfc71d826b373181430a8001a40568c30cbba07ef6b7e0a505816ca2fad7"
+      "sha256": "f0af73641a81a5b603f3e095e0da77b3e47210afa131797b465833168d6cd884"
     },
     {
       "path": "scripts/formal-release.sh",
@@ -369,11 +371,11 @@
     },
     {
       "path": "scripts/prepare-formal-release.sh",
-      "sha256": "04719b229bd884389a7fd661dc7cd98d71acabc6c5b76b737cf4b2726d30f302"
+      "sha256": "0d333136aa91aefb7354ed4b7756153d3ee686d60ad1002b06d5c4c680f7f95c"
     },
     {
       "path": "scripts/publish-release.sh",
-      "sha256": "6478994c10dfa7985c5c2bd82b6bad7ec216e4631c203347341dc6ba499b954b"
+      "sha256": "5a70ba722ffd4736ec3c319df292dabeb48a2af2a60ad176dc7e4e8b642a1042"
     },
     {
       "path": "scripts/publish-update-mirrors.sh",
@@ -381,11 +383,19 @@
     },
     {
       "path": "scripts/release-check.sh",
-      "sha256": "d2d1058b990cce75a431e2116887c937ba8a448593df8a20efe1f287a1d59052"
+      "sha256": "6a557d8c658f44300e6ab96599c4f32bede2e71eeeac600904455d20063762cf"
     },
     {
       "path": "scripts/release_tool.py",
       "sha256": "59fb8e23cb8c8ddc09c6756e89ce7b6468be6071e46ce80941c0fa7138fab71d"
+    },
+    {
+      "path": "scripts/standards-check.sh",
+      "sha256": "cc17cee4ffc82e21ced68917cf6f7a583a29372eb6a13c750dce74ea5fc00aaa"
+    },
+    {
+      "path": "scripts/standards-dependency.sh",
+      "sha256": "edcf72ee5dcb51a5998fad2d5e3ace894ea38a46ab37fbd8f5f0e9b1f8d6fb70"
     },
     {
       "path": "scripts/verify-artifact.sh",

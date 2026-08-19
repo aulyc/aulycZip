@@ -1,5 +1,3 @@
-STANDARDS_ROOT ?= /Users/crp/Projects/Codex 开发规范
-
 .PHONY: build test check bundle icons icon-check version-check standards-check \
 	prepare-formal-release release-check release-tag release-formal verify-artifact \
 	publish-release publish-update-mirrors install-release verify-installed refresh-standards
@@ -26,7 +24,7 @@ version-check:
 	python3 scripts/release_tool.py version-check
 
 standards-check:
-	python3 "$(STANDARDS_ROOT)/scripts/standards_check.py" project --path "$(CURDIR)" --strict
+	STANDARDS_ROOT="$(STANDARDS_ROOT)" bash scripts/standards-check.sh --strict
 
 prepare-formal-release:
 	@test -n "$(TARGET_VERSION)" || { echo "TARGET_VERSION is required" >&2; exit 64; }

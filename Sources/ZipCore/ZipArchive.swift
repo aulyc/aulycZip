@@ -5,12 +5,14 @@ public enum ZipArchive {
         at destination: URL,
         contentsOf sourceURLs: [URL],
         encryption: ZipCreationEncryption,
+        destinationPolicy: ZipCreationDestinationPolicy = .refuseExisting,
         cancellation: ZipOperationCancellation? = nil
     ) throws {
         try ZipArchiveWriter.create(
             at: destination,
             contentsOf: sourceURLs,
             encryption: encryption,
+            destinationPolicy: destinationPolicy,
             cancellation: cancellation
         )
     }
@@ -115,7 +117,7 @@ public enum ZipArchive {
             try reader.streamUncompressedData(
                 for: record,
                 password: password,
-                outputLimit: limits.maximumEntryUncompressedSize,
+                outputLimit: min(record.uncompressedSize, limits.maximumEntryUncompressedSize),
                 cancellation: cancellation
             ) { chunk in
                 let byteCount = UInt64(chunk.count)
@@ -202,9 +204,15 @@ public enum ZipArchive {
         }
     }
 
-    private static func createDirectory(at directory: URL, below root: URL) throws {
+    static func createDirectory(at directory: URL, below root: URL) throws {
         try createParents(for: directory, below: root)
-        if !FileManager.default.fileExists(atPath: directory.path) {
+        var isDirectory: ObjCBool = false
+        if FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory) {
+            let values = try directory.resourceValues(forKeys: [.isSymbolicLinkKey])
+            guard values.isSymbolicLink != true, isDirectory.boolValue else {
+                throw ZipError.unsafeEntryPath(directory.path)
+            }
+        } else {
             try FileManager.default.createDirectory(
                 at: directory,
                 withIntermediateDirectories: false,
@@ -213,7 +221,7 @@ public enum ZipArchive {
         }
     }
 
-    private static func createParents(for output: URL, below root: URL) throws {
+    static func createParents(for output: URL, below root: URL) throws {
         let root = root.standardizedFileURL
         let parent = output.deletingLastPathComponent()
         let relative = parent.path
@@ -224,7 +232,8 @@ public enum ZipArchive {
             current.appendPathComponent(String(component), isDirectory: true)
             var isDirectory: ObjCBool = false
             if FileManager.default.fileExists(atPath: current.path, isDirectory: &isDirectory) {
-                guard isDirectory.boolValue else {
+                let values = try current.resourceValues(forKeys: [.isSymbolicLinkKey])
+                guard values.isSymbolicLink != true, isDirectory.boolValue else {
                     throw ZipError.unsafeEntryPath(output.path)
                 }
             } else {
