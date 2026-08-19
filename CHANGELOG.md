@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-19
+
 ### Added
 
 - Add on-demand ZIP64 reading and creation while keeping small archives in classic ZIP, with plain and WinZip AES-256 ZIP64 interoperability coverage
