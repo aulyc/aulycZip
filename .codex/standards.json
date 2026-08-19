@@ -343,7 +343,7 @@
     },
     {
       "path": "docs/RELEASE.md",
-      "sha256": "3a78022f20e331778ef9c0d37eae84d27a73ff3c8faec6d047f55cf0abc43e34"
+      "sha256": "1697f8c3f1d2b03822a9627434cc12343ae21143f6367b58a4ff83bfd4039e7e"
     },
     {
       "path": "scripts/bundle.sh",

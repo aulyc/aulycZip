@@ -33,9 +33,9 @@ export STANDARDS_ROOT=/absolute/path/to/codex-engineering-standards
 渠道必须已经存在，随后准备独立发布元数据提交：
 
 ```bash
-make prepare-formal-release TARGET_VERSION=1.0.0 TARGET_BUILD=2
+make prepare-formal-release TARGET_VERSION=1.1.0 TARGET_BUILD=4
 git add Config/Info.plist CHANGELOG.md CHANGELOG.zh-CN.md
-git commit -m "chore: release 1.0.0"
+git commit -m "chore: release 1.1.0"
 ```
 
 运行标签前同配置候选门禁并创建不可移动标签：
