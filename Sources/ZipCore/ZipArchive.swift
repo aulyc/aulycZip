@@ -1,5 +1,10 @@
 import Foundation
 
+public enum ZipExtractionDestinationPolicy: Sendable {
+    case createNewDirectory
+    case mergeIntoExistingDirectory
+}
+
 public enum ZipArchive {
     public static func create(
         at destination: URL,
@@ -30,17 +35,37 @@ public enum ZipArchive {
         _ archive: URL,
         to destination: URL,
         password: String? = nil,
+        destinationPolicy: ZipExtractionDestinationPolicy = .createNewDirectory,
         limits: ZipExtractionLimits = .standard,
         cancellation: ZipOperationCancellation? = nil
     ) throws {
         try cancellation?.check()
         let fileManager = FileManager.default
-        if fileManager.fileExists(atPath: destination.path) {
-            let values = try destination.resourceValues(forKeys: [.isSymbolicLinkKey])
-            if values.isSymbolicLink == true {
+        let stagingParent: URL
+        switch destinationPolicy {
+        case .createNewDirectory:
+            if fileManager.fileExists(atPath: destination.path) {
+                let values = try destination.resourceValues(forKeys: [.isSymbolicLinkKey])
+                if values.isSymbolicLink == true {
+                    throw ZipError.unsafeEntryPath(destination.path)
+                }
+                throw ZipError.destinationAlreadyExists(destination.path)
+            }
+            stagingParent = destination.deletingLastPathComponent()
+        case .mergeIntoExistingDirectory:
+            var isDirectory = ObjCBool(false)
+            let exists = fileManager.fileExists(
+                atPath: destination.path,
+                isDirectory: &isDirectory
+            )
+            guard exists, isDirectory.boolValue else {
                 throw ZipError.unsafeEntryPath(destination.path)
             }
-            throw ZipError.destinationAlreadyExists(destination.path)
+            let values = try destination.resourceValues(forKeys: [.isSymbolicLinkKey])
+            guard values.isSymbolicLink != true else {
+                throw ZipError.unsafeEntryPath(destination.path)
+            }
+            stagingParent = destination
         }
 
         let reader = try ZipArchiveReader(url: archive, cancellation: cancellation)
@@ -64,8 +89,9 @@ public enum ZipArchive {
             }
         }
 
-        let parent = destination.deletingLastPathComponent()
-        let parentValues = try? parent.resourceValues(forKeys: [.volumeSupportsCaseSensitiveNamesKey])
+        let parentValues = try? stagingParent.resourceValues(
+            forKeys: [.volumeSupportsCaseSensitiveNamesKey]
+        )
         let caseSensitive = parentValues?.volumeSupportsCaseSensitiveNames ?? false
         try validateEntryPaths(
             reader.records,
@@ -73,7 +99,7 @@ public enum ZipArchive {
             maximumPathUTF8ByteCount: limits.maximumPathUTF8ByteCount
         )
         try validateAvailableSpace(
-            below: parent,
+            below: stagingParent,
             declaredOutput: declaredTotal,
             reserve: limits.minimumFreeSpaceReserve
         )
@@ -84,8 +110,8 @@ public enum ZipArchive {
             cancellation: cancellation
         )
 
-        try fileManager.createDirectory(at: parent, withIntermediateDirectories: true)
-        let staging = parent.appendingPathComponent(
+        try fileManager.createDirectory(at: stagingParent, withIntermediateDirectories: true)
+        let staging = stagingParent.appendingPathComponent(
             ".aulycZip-extract-\(UUID().uuidString)",
             isDirectory: true
         )
@@ -134,11 +160,82 @@ public enum ZipArchive {
         }
 
         try cancellation?.check()
-        guard !fileManager.fileExists(atPath: destination.path) else {
-            throw ZipError.destinationAlreadyExists(destination.path)
+        switch destinationPolicy {
+        case .createNewDirectory:
+            guard !fileManager.fileExists(atPath: destination.path) else {
+                throw ZipError.destinationAlreadyExists(destination.path)
+            }
+            try fileManager.moveItem(at: staging, to: destination)
+            committed = true
+        case .mergeIntoExistingDirectory:
+            try moveStagingContents(
+                from: staging,
+                into: destination,
+                caseSensitive: caseSensitive,
+                cancellation: cancellation
+            )
+            committed = true
+            try? fileManager.removeItem(at: staging)
         }
-        try fileManager.moveItem(at: staging, to: destination)
-        committed = true
+    }
+
+    private static func moveStagingContents(
+        from staging: URL,
+        into destination: URL,
+        caseSensitive: Bool,
+        cancellation: ZipOperationCancellation?
+    ) throws {
+        let fileManager = FileManager.default
+        let stagedItems = try fileManager.contentsOfDirectory(
+            at: staging,
+            includingPropertiesForKeys: nil
+        )
+        let existingNames = Set(
+            try fileManager.contentsOfDirectory(atPath: destination.path).map {
+                normalizedFileName($0, caseSensitive: caseSensitive)
+            }
+        )
+        for item in stagedItems {
+            let normalized = normalizedFileName(
+                item.lastPathComponent,
+                caseSensitive: caseSensitive
+            )
+            guard !existingNames.contains(normalized) else {
+                throw ZipError.destinationEntryAlreadyExists(
+                    destination.appendingPathComponent(item.lastPathComponent).path
+                )
+            }
+        }
+
+        var movedItems: [(source: URL, destination: URL)] = []
+        do {
+            for source in stagedItems {
+                try cancellation?.check()
+                let target = destination.appendingPathComponent(
+                    source.lastPathComponent,
+                    isDirectory: false
+                )
+                guard !fileManager.fileExists(atPath: target.path) else {
+                    throw ZipError.destinationEntryAlreadyExists(target.path)
+                }
+                try fileManager.moveItem(at: source, to: target)
+                movedItems.append((source, target))
+            }
+        } catch {
+            for item in movedItems.reversed() {
+                try? fileManager.moveItem(at: item.destination, to: item.source)
+            }
+            throw error
+        }
+    }
+
+    private static func normalizedFileName(_ name: String, caseSensitive: Bool) -> String {
+        let normalized = name.precomposedStringWithCanonicalMapping
+        guard !caseSensitive else { return normalized }
+        return normalized.folding(
+            options: [.caseInsensitive],
+            locale: Locale(identifier: "en_US_POSIX")
+        )
     }
 
     private static func validateEntryPaths(

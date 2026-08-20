@@ -17,7 +17,7 @@ public enum StatusMenuAction: Equatable, Sendable {
     public var systemImage: String {
         switch self {
         case .createEncrypted: "lock.fill"
-        case .extract: "archivebox.badge.plus"
+        case .extract: "archivebox"
         }
     }
 }

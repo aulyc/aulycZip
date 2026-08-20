@@ -1,9 +1,16 @@
 import AppKit
+import ZipCore
 import aulycZipAppSupport
 
 struct FinderArchiveCreationChoice: Sendable {
     let password: String
     let request: FinderArchiveRequest
+}
+
+struct ArchiveExtractionChoice: Sendable {
+    let destinationURL: URL
+    let destinationPolicy: ZipExtractionDestinationPolicy
+    let password: String?
 }
 
 @MainActor
@@ -79,7 +86,8 @@ enum PasswordPrompt {
 
             let dialog = FinderArchivePasswordDialog(
                 accessoryView: accessory,
-                randomPasswordButton: randomPasswordButton,
+                supplementaryButton: randomPasswordButton,
+                primaryButtonTitle: "创建",
                 initialFirstResponder: first,
                 validationHandler: {
                     if let validation = newPasswordValidation(
@@ -152,18 +160,36 @@ enum PasswordPrompt {
         }
     }
 
-    static func requestExistingPassword() -> String? {
-        let field = secureTextField(placeholder: "输入 ZIP 密码")
-        let alert = NSAlert()
-        alert.alertStyle = .informational
-        alert.messageText = "这个 ZIP 已加密"
-        alert.informativeText = "请输入密码后再解压。密码不会保存。"
-        alert.accessoryView = passwordAccessory(rows: [("密码", field)])
-        alert.addButton(withTitle: "解压")
-        alert.addButton(withTitle: "取消")
-        alert.window.initialFirstResponder = field
-        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
-        return field.stringValue
+    static func requestExtractionChoice(
+        for archiveURL: URL,
+        requiresPassword: Bool
+    ) -> ArchiveExtractionChoice? {
+        let passwordField = requiresPassword
+            ? secureTextField(
+                placeholder: "输入解压缩密码",
+                visibilityIdentifier: "extract-password-visibility"
+            )
+            : nil
+        let locationController = ArchiveExtractionLocationController(archiveURL: archiveURL)
+        let accessory = archiveExtractionAccessory(
+            archiveURL: archiveURL,
+            locationController: locationController,
+            password: passwordField
+        )
+        let dialog = FinderArchivePasswordDialog(
+            accessoryView: accessory,
+            primaryButtonTitle: "解压",
+            initialFirstResponder: passwordField,
+            validationHandler: {
+                locationController.validateSelection()
+            }
+        )
+        guard dialog.runModal() == .alertFirstButtonReturn else { return nil }
+        return ArchiveExtractionChoice(
+            destinationURL: locationController.destinationURL,
+            destinationPolicy: locationController.destinationPolicy,
+            password: passwordField?.stringValue
+        )
     }
 
     private static func passwordAccessory(rows: [(String, PasswordEntryControl)]) -> NSView {
@@ -220,6 +246,52 @@ enum PasswordPrompt {
         stack.translatesAutoresizingMaskIntoConstraints = false
 
         let container = NSView(frame: NSRect(x: 0, y: 0, width: 500, height: 178))
+        container.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: container.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            header.widthAnchor.constraint(equalToConstant: 500),
+        ])
+        return container
+    }
+
+    private static func archiveExtractionAccessory(
+        archiveURL: URL,
+        locationController: ArchiveExtractionLocationController,
+        password: PasswordEntryControl?
+    ) -> NSView {
+        let header = passwordDialogHeader(
+            title: "设置 ZIP 解压缩",
+            accessibilityIdentifier: "archive-extraction-title"
+        )
+        let target = singleLineDetailLabel(archiveURL.path)
+        target.toolTip = archiveURL.path
+        let targetGrid = formGrid(rows: [("解压目标", target)])
+
+        var controls: [(String, NSView)] = [
+            ("输出文件夹", locationController.makeOutputDirectoryControl()),
+            ("", locationController.makeIndependentFolderCheckbox()),
+        ]
+        if let password {
+            controls.append(("解压密码", password))
+        }
+        let grid = formGrid(rows: controls)
+
+        let stack = NSStackView(views: [
+            header,
+            targetGrid,
+            grid,
+        ])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 10
+        stack.setCustomSpacing(16, after: header)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        let height: CGFloat = password == nil ? 148 : 184
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 500, height: height))
         container.addSubview(stack)
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: container.leadingAnchor),

@@ -17,6 +17,11 @@ private enum ListingOutcome: Sendable {
     case systemFailure(String)
 }
 
+private enum CompletionPresentation {
+    case systemAlert
+    case appHeader
+}
+
 @MainActor
 final class ArchiveWorkflowController {
     private let progress = ProgressPanelController()
@@ -144,9 +149,10 @@ final class ArchiveWorkflowController {
             progress.dismiss()
             handleCompletion(
                 outcome,
-                successTitle: "ZIP 已创建",
+                successTitle: "加密 ZIP 已创建",
                 successMessage: destination.path,
-                reveal: destination
+                reveal: destination,
+                presentation: .appHeader
             )
         }
     }
@@ -211,34 +217,15 @@ final class ArchiveWorkflowController {
                 return
             }
 
-            let password: String?
-            if entries.contains(where: \.isEncrypted) {
-                guard let supplied = PasswordPrompt.requestExistingPassword() else {
-                    operationCoordinator.end(.archive)
-                    return
-                }
-                password = supplied
-            } else {
-                password = nil
-            }
-
-            let destinationPanel = NSOpenPanel()
-            destinationPanel.title = "选择解压位置"
-            destinationPanel.prompt = "解压到这里"
-            destinationPanel.canChooseFiles = false
-            destinationPanel.canChooseDirectories = true
-            destinationPanel.canCreateDirectories = true
-            destinationPanel.allowsMultipleSelection = false
-            destinationPanel.directoryURL = archive.deletingLastPathComponent()
-            guard destinationPanel.runModal() == .OK, let parent = destinationPanel.url else {
+            guard let choice = PasswordPrompt.requestExtractionChoice(
+                for: archive,
+                requiresPassword: entries.contains(where: \.isEncrypted)
+            ) else {
                 operationCoordinator.end(.archive)
                 return
             }
 
-            let destination = uniqueExtractionDestination(
-                below: parent,
-                preferredName: archive.deletingPathExtension().lastPathComponent
-            )
+            let destination = choice.destinationURL
             progress.showOperation(
                 title: "正在解压 ZIP",
                 detail: archive.lastPathComponent,
@@ -249,7 +236,8 @@ final class ArchiveWorkflowController {
                     try ZipArchive.extract(
                         archive,
                         to: destination,
-                        password: password,
+                        password: choice.password,
+                        destinationPolicy: choice.destinationPolicy,
                         cancellation: cancellation
                     )
                     return WorkflowOutcome.success
@@ -300,31 +288,32 @@ final class ArchiveWorkflowController {
         return "归档.zip"
     }
 
-    private func uniqueExtractionDestination(below parent: URL, preferredName: String) -> URL {
-        let baseName = preferredName.isEmpty ? "解压内容" : preferredName
-        var candidate = parent.appendingPathComponent(baseName, isDirectory: true)
-        var suffix = 2
-        while FileManager.default.fileExists(atPath: candidate.path) {
-            candidate = parent.appendingPathComponent("\(baseName) \(suffix)", isDirectory: true)
-            suffix += 1
-        }
-        return candidate
-    }
-
     private func handleCompletion(
         _ outcome: WorkflowOutcome,
         successTitle: String,
         successMessage: String,
-        reveal: URL
+        reveal: URL,
+        presentation: CompletionPresentation = .systemAlert
     ) {
         switch outcome {
         case .success:
-            let alert = NSAlert()
-            alert.messageText = successTitle
-            alert.informativeText = successMessage
-            alert.addButton(withTitle: "在 Finder 中显示")
-            alert.addButton(withTitle: "完成")
-            if alert.runModal() == .alertFirstButtonReturn {
+            let response: NSApplication.ModalResponse
+            switch presentation {
+            case .systemAlert:
+                let alert = NSAlert()
+                alert.messageText = successTitle
+                alert.informativeText = successMessage
+                alert.addButton(withTitle: "在 Finder 中显示")
+                alert.addButton(withTitle: "完成")
+                response = alert.runModal()
+            case .appHeader:
+                let dialog = WorkflowCompletionDialog(
+                    title: successTitle,
+                    message: successMessage
+                )
+                response = dialog.runModal()
+            }
+            if response == .alertFirstButtonReturn {
                 NSWorkspace.shared.activateFileViewerSelecting([reveal])
             }
         case .cancelled:
@@ -355,6 +344,8 @@ final class ArchiveWorkflowController {
             message = "输出 ZIP 不能覆盖作为输入的文件，请换一个文件名或保存位置。"
         case .destinationAlreadyExists:
             message = "目标位置已经存在同名文件或文件夹，未执行覆盖。"
+        case .destinationEntryAlreadyExists(let path):
+            message = "输出位置已有同名项目：\(URL(fileURLWithPath: path).lastPathComponent)。未覆盖任何内容。请勾选“解压到独立文件夹”后重试。"
         case .unsupportedFeature(let reason):
             message = "暂不支持这个 ZIP：\(reason)"
         case .invalidArchive(let reason):

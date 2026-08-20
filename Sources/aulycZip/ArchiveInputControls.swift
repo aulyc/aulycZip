@@ -77,12 +77,14 @@ final class ArchiveFileNameControl: NSView, NSTextFieldDelegate {
         baseNameField.isSelectable = true
         baseNameField.focusRingType = .none
         baseNameField.font = .systemFont(ofSize: 13)
+        baseNameField.maximumNumberOfLines = 1
         baseNameField.placeholderString = "输出文件名"
         baseNameField.stringValue = normalizedBaseName(baseName)
         baseNameField.delegate = self
         baseNameField.toolTip = "可以修改文件名；.zip 扩展名固定，不可修改"
         baseNameField.setAccessibilityLabel("输出文件名，不含固定的 .zip 扩展名")
         baseNameField.setAccessibilityIdentifier("archive-output-file-base-name")
+        updateBaseNamePresentation(isEditing: false)
 
         directoryLabel.font = .systemFont(ofSize: 13)
         directoryLabel.isBezeled = false
@@ -157,10 +159,12 @@ final class ArchiveFileNameControl: NSView, NSTextFieldDelegate {
     }
 
     func controlTextDidBeginEditing(_ notification: Notification) {
+        updateBaseNamePresentation(isEditing: true)
         fieldBackground.setFocused(true)
     }
 
     func controlTextDidEndEditing(_ notification: Notification) {
+        updateBaseNamePresentation(isEditing: false)
         fieldBackground.setFocused(false)
     }
 
@@ -206,6 +210,14 @@ final class ArchiveFileNameControl: NSView, NSTextFieldDelegate {
         baseNameWidthConstraint?.constant = preferredBaseNameWidth()
     }
 
+    private func updateBaseNamePresentation(isEditing: Bool) {
+        baseNameField.lineBreakMode = isEditing ? .byClipping : .byTruncatingMiddle
+        baseNameField.cell?.usesSingleLineMode = true
+        baseNameField.cell?.wraps = false
+        baseNameField.cell?.isScrollable = isEditing
+        baseNameField.needsDisplay = true
+    }
+
     private func preferredBaseNameWidth() -> CGFloat {
         let visibleText = baseNameField.stringValue.isEmpty
             ? (baseNameField.placeholderString ?? "")
@@ -214,12 +226,64 @@ final class ArchiveFileNameControl: NSView, NSTextFieldDelegate {
         let textWidth = ceil(
             (visibleText as NSString).size(withAttributes: [.font: font]).width
         )
-        return min(220, max(12, textWidth + 2))
+        return min(244, max(12, textWidth + 2))
     }
 
     private func refreshToolTip() {
         let directory = directoryLabel.stringValue
         toolTip = directory.isEmpty ? nil : directory + baseNameField.stringValue + ".zip"
+    }
+}
+
+@MainActor
+final class ArchivePathDisplayControl: NSView {
+    private let fieldBackground = FocusBorderBox(frame: .zero)
+    private let pathLabel = NSTextField(frame: .zero)
+
+    var path: String {
+        get { pathLabel.stringValue }
+        set {
+            pathLabel.stringValue = newValue
+            pathLabel.toolTip = newValue
+        }
+    }
+
+    init(path: String, accessibilityIdentifier: String) {
+        super.init(frame: .zero)
+
+        pathLabel.font = .systemFont(ofSize: 13)
+        pathLabel.isBezeled = false
+        pathLabel.drawsBackground = false
+        pathLabel.isEditable = false
+        pathLabel.isSelectable = true
+        pathLabel.focusRingType = .none
+        pathLabel.textColor = .secondaryLabelColor
+        pathLabel.lineBreakMode = .byTruncatingMiddle
+        pathLabel.maximumNumberOfLines = 1
+        pathLabel.cell?.usesSingleLineMode = true
+        pathLabel.stringValue = path
+        pathLabel.toolTip = path
+        pathLabel.setAccessibilityLabel("输出文件夹")
+        pathLabel.setAccessibilityIdentifier(accessibilityIdentifier)
+        pathLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(fieldBackground)
+        addSubview(pathLabel)
+        NSLayoutConstraint.activate([
+            fieldBackground.leadingAnchor.constraint(equalTo: leadingAnchor),
+            fieldBackground.trailingAnchor.constraint(equalTo: trailingAnchor),
+            fieldBackground.topAnchor.constraint(equalTo: topAnchor),
+            fieldBackground.bottomAnchor.constraint(equalTo: bottomAnchor),
+            pathLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            pathLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            pathLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+            pathLabel.heightAnchor.constraint(equalToConstant: 16),
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
 }
 

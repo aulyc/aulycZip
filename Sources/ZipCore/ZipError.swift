@@ -11,6 +11,7 @@ public enum ZipError: Error, Equatable, Sendable {
     case duplicateEntry(String)
     case destinationMatchesSource
     case destinationAlreadyExists(String)
+    case destinationEntryAlreadyExists(String)
     case tooManyEntries
     case cancelled
 }

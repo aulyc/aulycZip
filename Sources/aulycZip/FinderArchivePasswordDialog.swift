@@ -17,8 +17,9 @@ final class FinderArchivePasswordDialog: NSObject {
 
     init(
         accessoryView: NSView,
-        randomPasswordButton: NSButton,
-        initialFirstResponder: NSView,
+        supplementaryButton: NSButton? = nil,
+        primaryButtonTitle: String,
+        initialFirstResponder: NSView? = nil,
         validationHandler: @escaping () -> FinderArchivePasswordValidation?
     ) {
         self.initialFirstResponder = initialFirstResponder
@@ -57,24 +58,25 @@ final class FinderArchivePasswordDialog: NSObject {
         cancelButton.keyEquivalent = "\u{1b}"
         cancelButton.setAccessibilityIdentifier("action-button-2")
 
-        let createButton = NSButton(
-            title: "创建",
+        let primaryButton = NSButton(
+            title: primaryButtonTitle,
             target: self,
-            action: #selector(create(_:))
+            action: #selector(submit(_:))
         )
-        createButton.bezelStyle = .rounded
-        createButton.controlSize = .large
-        createButton.keyEquivalent = "\r"
-        createButton.setAccessibilityIdentifier("action-button-1")
+        primaryButton.bezelStyle = .rounded
+        primaryButton.controlSize = .large
+        primaryButton.keyEquivalent = "\r"
+        primaryButton.setAccessibilityIdentifier("action-button-1")
 
-        randomPasswordButton.bezelStyle = .rounded
-        randomPasswordButton.controlSize = .large
+        supplementaryButton?.bezelStyle = .rounded
+        supplementaryButton?.controlSize = .large
 
-        let buttons = NSStackView(views: [
-            cancelButton,
-            randomPasswordButton,
-            createButton,
-        ])
+        var actionButtons = [cancelButton]
+        if let supplementaryButton {
+            actionButtons.append(supplementaryButton)
+        }
+        actionButtons.append(primaryButton)
+        let buttons = NSStackView(views: actionButtons)
         buttons.orientation = .horizontal
         buttons.alignment = .centerY
         buttons.spacing = 8
@@ -92,14 +94,13 @@ final class FinderArchivePasswordDialog: NSObject {
             buttons.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             buttons.topAnchor.constraint(equalTo: accessoryView.bottomAnchor, constant: 14),
             buttons.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
-            cancelButton.widthAnchor.constraint(equalToConstant: 110),
-            randomPasswordButton.widthAnchor.constraint(equalToConstant: 110),
-            createButton.widthAnchor.constraint(equalToConstant: 110),
-            cancelButton.heightAnchor.constraint(equalToConstant: 32),
-            randomPasswordButton.heightAnchor.constraint(equalToConstant: 32),
-            createButton.heightAnchor.constraint(equalToConstant: 32),
-        ])
-        panel.defaultButtonCell = createButton.cell as? NSButtonCell
+        ] + actionButtons.flatMap { button in
+            [
+                button.widthAnchor.constraint(equalToConstant: 110),
+                button.heightAnchor.constraint(equalToConstant: 32),
+            ]
+        })
+        panel.defaultButtonCell = primaryButton.cell as? NSButtonCell
     }
 
     func runModal() -> NSApplication.ModalResponse {
@@ -118,7 +119,7 @@ final class FinderArchivePasswordDialog: NSObject {
         return response
     }
 
-    @objc private func create(_ sender: NSButton) {
+    @objc private func submit(_ sender: NSButton) {
         if let validation = validationHandler() {
             showValidation(validation)
             return

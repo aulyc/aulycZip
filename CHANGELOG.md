@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add an “Extract into a separate folder” option; keep the ZIP-named folder as the default, allow direct extraction beside the ZIP when disabled, and combine destination and password input in one dialog
+
+### Security and compatibility
+
+- Stage direct extraction inside the destination while validating passwords, authentication, and paths, then reject top-level name conflicts without overwriting or leaving partial output
+
+### Interface
+
+- Unify application icons and compact layouts across encryption, extraction, generated-password, and completion dialogs; middle-truncate long paths while preserving file-name endings, and restore the extraction menu icon
+
 ## [1.1.0] - 2026-08-19
 
 ### Added

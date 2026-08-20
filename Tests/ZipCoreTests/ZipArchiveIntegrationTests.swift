@@ -22,6 +22,217 @@ struct ZipArchiveIntegrationTests {
         }
     }
 
+    @Test("an existing directory can receive extracted files without an extra folder")
+    func directExtractionIntoExistingDirectory() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("直接解压.txt")
+            let original = Data("direct extraction".utf8)
+            try original.write(to: source)
+            try ZipArchive.create(at: fixture.archive, contentsOf: [source], encryption: .none)
+            try FileManager.default.createDirectory(
+                at: fixture.output,
+                withIntermediateDirectories: false
+            )
+
+            try ZipArchive.extract(
+                fixture.archive,
+                to: fixture.output,
+                destinationPolicy: .mergeIntoExistingDirectory
+            )
+
+            #expect(
+                try Data(contentsOf: fixture.output.appendingPathComponent("直接解压.txt"))
+                    == original
+            )
+        }
+    }
+
+    @Test("direct extraction refuses a conflicting item without changing it")
+    func directExtractionRefusesConflicts() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("冲突.txt")
+            let existing = Data("keep existing".utf8)
+            try Data("new content".utf8).write(to: source)
+            try ZipArchive.create(at: fixture.archive, contentsOf: [source], encryption: .none)
+            try FileManager.default.createDirectory(
+                at: fixture.output,
+                withIntermediateDirectories: false
+            )
+            let conflict = fixture.output.appendingPathComponent("冲突.txt")
+            try existing.write(to: conflict)
+
+            #expect(throws: ZipError.destinationEntryAlreadyExists(conflict.path)) {
+                try ZipArchive.extract(
+                    fixture.archive,
+                    to: fixture.output,
+                    destinationPolicy: .mergeIntoExistingDirectory
+                )
+            }
+            #expect(try Data(contentsOf: conflict) == existing)
+            let leftovers = try FileManager.default.contentsOfDirectory(
+                at: fixture.output,
+                includingPropertiesForKeys: nil
+            ).filter { $0.lastPathComponent.hasPrefix(".aulycZip-extract-") }
+            #expect(leftovers.isEmpty)
+        }
+    }
+
+    @Test("direct extraction preserves nested paths and multiple top-level items")
+    func directExtractionPreservesArchiveStructure() throws {
+        try withFixture { fixture in
+            let folder = fixture.source.appendingPathComponent("资料", isDirectory: true)
+            let nested = folder.appendingPathComponent("内部", isDirectory: true)
+            let looseFile = fixture.source.appendingPathComponent("说明.txt")
+            try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+            try Data("nested".utf8).write(to: nested.appendingPathComponent("内容.txt"))
+            try Data("loose".utf8).write(to: looseFile)
+            try ZipArchive.create(
+                at: fixture.archive,
+                contentsOf: [folder, looseFile],
+                encryption: .none
+            )
+            try FileManager.default.createDirectory(
+                at: fixture.output,
+                withIntermediateDirectories: false
+            )
+
+            try ZipArchive.extract(
+                fixture.archive,
+                to: fixture.output,
+                destinationPolicy: .mergeIntoExistingDirectory
+            )
+
+            #expect(
+                try Data(contentsOf: fixture.output.appendingPathComponent("资料/内部/内容.txt"))
+                    == Data("nested".utf8)
+            )
+            #expect(
+                try Data(contentsOf: fixture.output.appendingPathComponent("说明.txt"))
+                    == Data("loose".utf8)
+            )
+        }
+    }
+
+    @Test("wrong password writes nothing into an existing destination")
+    func directExtractionRejectsWrongPasswordTransactionally() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("机密.txt")
+            try Data("secret".utf8).write(to: source)
+            try ZipArchive.create(
+                at: fixture.archive,
+                contentsOf: [source],
+                encryption: .winZipAES256(password: "right-password")
+            )
+            try FileManager.default.createDirectory(
+                at: fixture.output,
+                withIntermediateDirectories: false
+            )
+            let marker = fixture.output.appendingPathComponent("保留.txt")
+            try Data("keep".utf8).write(to: marker)
+
+            #expect(throws: ZipError.wrongPassword) {
+                try ZipArchive.extract(
+                    fixture.archive,
+                    to: fixture.output,
+                    password: "wrong-password",
+                    destinationPolicy: .mergeIntoExistingDirectory
+                )
+            }
+            #expect(try Data(contentsOf: marker) == Data("keep".utf8))
+            #expect(
+                !FileManager.default.fileExists(
+                    atPath: fixture.output.appendingPathComponent("机密.txt").path
+                )
+            )
+            let leftovers = try FileManager.default.contentsOfDirectory(
+                at: fixture.output,
+                includingPropertiesForKeys: nil
+            ).filter { $0.lastPathComponent.hasPrefix(".aulycZip-extract-") }
+            #expect(leftovers.isEmpty)
+        }
+    }
+
+    @Test("cancelled direct extraction leaves an existing destination unchanged")
+    func directExtractionCancellationRollsBack() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("取消.txt")
+            try Data("cancel".utf8).write(to: source)
+            try ZipArchive.create(at: fixture.archive, contentsOf: [source], encryption: .none)
+            try FileManager.default.createDirectory(
+                at: fixture.output,
+                withIntermediateDirectories: false
+            )
+            let marker = fixture.output.appendingPathComponent("保留.txt")
+            try Data("keep".utf8).write(to: marker)
+            let cancellation = ZipOperationCancellation()
+            cancellation.cancel()
+
+            #expect(throws: ZipError.cancelled) {
+                try ZipArchive.extract(
+                    fixture.archive,
+                    to: fixture.output,
+                    destinationPolicy: .mergeIntoExistingDirectory,
+                    cancellation: cancellation
+                )
+            }
+            #expect(try Data(contentsOf: marker) == Data("keep".utf8))
+            #expect(
+                !FileManager.default.fileExists(
+                    atPath: fixture.output.appendingPathComponent("取消.txt").path
+                )
+            )
+        }
+    }
+
+    @Test("direct extraction rejects a symbolic-link destination root")
+    func directExtractionRejectsSymbolicLinkDestination() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("逃逸.txt")
+            let outside = fixture.root.appendingPathComponent("outside", isDirectory: true)
+            try Data("blocked".utf8).write(to: source)
+            try ZipArchive.create(at: fixture.archive, contentsOf: [source], encryption: .none)
+            try FileManager.default.createDirectory(
+                at: outside,
+                withIntermediateDirectories: false
+            )
+            try FileManager.default.createSymbolicLink(
+                at: fixture.output,
+                withDestinationURL: outside
+            )
+
+            #expect(throws: ZipError.unsafeEntryPath(fixture.output.path)) {
+                try ZipArchive.extract(
+                    fixture.archive,
+                    to: fixture.output,
+                    destinationPolicy: .mergeIntoExistingDirectory
+                )
+            }
+            #expect(
+                !FileManager.default.fileExists(
+                    atPath: outside.appendingPathComponent("逃逸.txt").path
+                )
+            )
+        }
+    }
+
+    @Test("direct extraction requires an existing directory destination")
+    func directExtractionRejectsMissingDestination() throws {
+        try withFixture { fixture in
+            let source = fixture.source.appendingPathComponent("内容.txt")
+            try Data("content".utf8).write(to: source)
+            try ZipArchive.create(at: fixture.archive, contentsOf: [source], encryption: .none)
+
+            #expect(throws: ZipError.unsafeEntryPath(fixture.output.path)) {
+                try ZipArchive.extract(
+                    fixture.archive,
+                    to: fixture.output,
+                    destinationPolicy: .mergeIntoExistingDirectory
+                )
+            }
+            #expect(!FileManager.default.fileExists(atPath: fixture.output.path))
+        }
+    }
+
     @Test("folder hierarchy round-trips")
     func folderRoundTrip() throws {
         try withFixture { fixture in
