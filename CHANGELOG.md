@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-08-20
+
 ### Changed
 
 - Replace technical update-delivery details in the available-update dialog with a concise, user-facing summary of improvements and fixes
