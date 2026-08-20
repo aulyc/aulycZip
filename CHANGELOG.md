@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-20
+
 ### Added
 
 - Add an “Extract into a separate folder” option; keep the ZIP-named folder as the default, allow direct extraction beside the ZIP when disabled, and combine destination and password input in one dialog
