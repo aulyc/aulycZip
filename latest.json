@@ -5,19 +5,19 @@
     "downloads": [
       {
         "source": "github",
-        "url": "https://github.com/aulyc/aulycZip/releases/download/1.2.1/aulycZip-1.2.1-build.6-formal-macos-arm64.dmg"
+        "url": "https://github.com/aulyc/aulycZip/releases/download/1.2.2/aulycZip-1.2.2-build.7-formal-macos-arm64.dmg"
       },
       {
         "source": "gitee",
-        "url": "https://gitee.com/aulyc/aulycZip/releases/download/1.2.1/aulycZip-1.2.1-build.6-formal-macos-arm64.dmg"
+        "url": "https://gitee.com/aulyc/aulycZip/releases/download/1.2.2/aulycZip-1.2.2-build.7-formal-macos-arm64.dmg"
       }
     ],
-    "file": "aulycZip-1.2.1-build.6-formal-macos-arm64.dmg",
-    "sha256": "8d627113e86d93ff44bc756795185d38c4de401f1c693a22af2969882cd9a163"
+    "file": "aulycZip-1.2.2-build.7-formal-macos-arm64.dmg",
+    "sha256": "048c3bfa344ab634258280e6b4b827e9f0d11902bad1a8034a1ca9523cea8257"
   },
-  "buildNumber": 6,
+  "buildNumber": 7,
   "bundleIdentifier": "com.aulyc.aulyczip",
-  "commit": "f48e437c9426c1ed711a8a49c748188d24708273",
+  "commit": "c564dd9c88536f4960f2b044902640f16d02d624",
   "minimumSystemVersion": "14.0",
   "pluginIdentifier": null,
   "policy": "aulyc-dual-mirror-v1",
@@ -25,21 +25,21 @@
     "downloads": [
       {
         "source": "github",
-        "url": "https://raw.githubusercontent.com/aulyc/aulycZip/release-channel/updates/1.2.1/aulycZip-1.2.1-build.6-formal-macos-arm64.release-provenance.json"
+        "url": "https://raw.githubusercontent.com/aulyc/aulycZip/release-channel/updates/1.2.2/aulycZip-1.2.2-build.7-formal-macos-arm64.release-provenance.json"
       },
       {
         "source": "gitee",
-        "url": "https://gitee.com/aulyc/aulycZip/raw/main/updates/1.2.1/aulycZip-1.2.1-build.6-formal-macos-arm64.release-provenance.json"
+        "url": "https://gitee.com/aulyc/aulycZip/raw/main/updates/1.2.2/aulycZip-1.2.2-build.7-formal-macos-arm64.release-provenance.json"
       }
     ],
-    "file": "aulycZip-1.2.1-build.6-formal-macos-arm64.release-provenance.json",
-    "sha256": "5a0127e501dff0e543ac236244ace133ca96d7231e20afe807cd114e046c7321"
+    "file": "aulycZip-1.2.2-build.7-formal-macos-arm64.release-provenance.json",
+    "sha256": "3994a7379677b7c8e990dac94881821639d3db4e898c3febf1dcf35733dc5b4d"
   },
   "releaseChannel": "formal",
-  "releasePageURL": "https://github.com/aulyc/aulycZip/releases/tag/1.2.1",
+  "releasePageURL": "https://github.com/aulyc/aulycZip/releases/tag/1.2.2",
   "releaseProfile": "macos-arm64-app",
   "schemaVersion": 2,
-  "tag": "1.2.1",
+  "tag": "1.2.2",
   "teamIdentifier": "M9M7M2ARFD",
-  "version": "1.2.1"
+  "version": "1.2.2"
 }
