@@ -319,7 +319,7 @@
     },
     {
       "path": "Sources/aulycZip/UpdateController.swift",
-      "sha256": "304733dc6591a161edf4a7e71215684a980d8303afdcf5907c33dd233df56ff5"
+      "sha256": "306d0a2db228c2df9fff782ffd94fd60e8b37ca2b5b6a19d86adaa127ad87c1c"
     },
     {
       "path": "Sources/aulycZipAppSupport/UpdateInstaller.swift",

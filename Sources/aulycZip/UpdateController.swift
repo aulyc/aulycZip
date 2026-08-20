@@ -110,7 +110,7 @@ final class UpdateController {
         let alert = NSAlert()
         alert.alertStyle = .informational
         alert.messageText = "发现 aulycZip \(manifest.version)"
-        alert.informativeText = "新版本将从 GitHub 优先下载；连接或校验失败时自动切换到 Gitee，并在安装前验证发布溯源、SHA-256、签名和公证"
+        alert.informativeText = "新版本优化了解压体验和界面显示，并修复了部分 ZIP 文件解压后出现多余文件的问题。"
         alert.addButton(withTitle: "立即更新")
         alert.addButton(withTitle: "稍后")
         alert.addButton(withTitle: "查看发布页")
