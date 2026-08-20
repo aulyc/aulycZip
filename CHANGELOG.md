@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-08-20
+
 ### Fixed
 
 - Ignore macOS helper metadata such as `__MACOSX/`, `.DS_Store`, and AppleDouble `._*` during extraction instead of writing it into the result

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-08-20
+
 ### 修复
 
 - 解压时忽略 `__MACOSX/`、`.DS_Store` 和 AppleDouble `._*` 等 macOS 辅助元数据，不再把这些项目写入解压结果
