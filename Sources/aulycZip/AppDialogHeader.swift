@@ -1,7 +1,7 @@
 import AppKit
 
 @MainActor
-func passwordDialogHeader(
+func appDialogHeader(
     title: String,
     accessibilityIdentifier: String
 ) -> NSView {

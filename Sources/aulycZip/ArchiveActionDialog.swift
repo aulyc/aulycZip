@@ -2,7 +2,7 @@ import AppKit
 import aulycZipAppSupport
 
 @MainActor
-struct FinderArchivePasswordValidation {
+struct ArchiveActionValidation {
     let title: String
     let message: String
     let buttonTitle: String
@@ -10,17 +10,17 @@ struct FinderArchivePasswordValidation {
 }
 
 @MainActor
-final class FinderArchivePasswordDialog: NSObject {
+final class ArchiveActionDialog: NSObject {
     private let panel: NSPanel
     private weak var initialFirstResponder: NSView?
-    private let validationHandler: () -> FinderArchivePasswordValidation?
+    private let validationHandler: () -> ArchiveActionValidation?
 
     init(
         accessoryView: NSView,
         supplementaryButton: NSButton? = nil,
         primaryButtonTitle: String,
         initialFirstResponder: NSView? = nil,
-        validationHandler: @escaping () -> FinderArchivePasswordValidation?
+        validationHandler: @escaping () -> ArchiveActionValidation?
     ) {
         self.initialFirstResponder = initialFirstResponder
         self.validationHandler = validationHandler
@@ -30,23 +30,8 @@ final class FinderArchivePasswordDialog: NSObject {
             width: accessorySize.width + 40,
             height: accessorySize.height + 88
         )
-        panel = NSPanel(
-            contentRect: NSRect(origin: .zero, size: contentSize),
-            styleMask: [.titled, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
-        )
+        panel = AppModalPanel.make(size: contentSize)
         super.init()
-
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
-        panel.isMovableByWindowBackground = true
-        panel.isReleasedWhenClosed = false
-        panel.backgroundColor = .windowBackgroundColor
-        panel.level = .modalPanel
-        panel.standardWindowButton(.closeButton)?.isHidden = true
-        panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        panel.standardWindowButton(.zoomButton)?.isHidden = true
 
         let cancelButton = NSButton(
             title: "取消",
@@ -104,19 +89,16 @@ final class FinderArchivePasswordDialog: NSObject {
     }
 
     func runModal() -> NSApplication.ModalResponse {
-        panel.center()
-        NSApp.activate(ignoringOtherApps: true)
-        panel.makeKeyAndOrderFront(nil)
-        if let initialFirstResponder {
+        AppModalPanel.run(panel) { [weak self] in
+            guard let self,
+                  let initialFirstResponder = self.initialFirstResponder
+            else { return }
             if let passwordEntry = initialFirstResponder as? PasswordEntryControl {
                 passwordEntry.focus()
             } else {
                 panel.makeFirstResponder(initialFirstResponder)
             }
         }
-        let response = NSApp.runModal(for: panel)
-        panel.orderOut(nil)
-        return response
     }
 
     @objc private func submit(_ sender: NSButton) {
@@ -131,7 +113,7 @@ final class FinderArchivePasswordDialog: NSObject {
         NSApp.stopModal(withCode: .alertSecondButtonReturn)
     }
 
-    private func showValidation(_ validation: FinderArchivePasswordValidation) {
+    private func showValidation(_ validation: ArchiveActionValidation) {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = validation.title
@@ -150,12 +132,12 @@ final class FinderArchivePasswordDialog: NSObject {
 }
 
 @MainActor
-final class FinderArchiveLocationController: NSObject {
-    private(set) var request: FinderArchiveRequest
+final class EncryptedArchiveLocationController: NSObject {
+    private(set) var request: EncryptedArchiveRequest
     private var passwordGenerationController: GeneratedPasswordController?
     let outputFileControl: ArchiveFileNameControl
 
-    init(request: FinderArchiveRequest, outputFileName: String) {
+    init(request: EncryptedArchiveRequest, outputFileName: String) {
         self.request = request
         outputFileControl = ArchiveFileNameControl(
             baseName: outputFileName.isEmpty
@@ -243,19 +225,19 @@ final class FinderArchiveLocationController: NSObject {
                 let preservedName = request.destinationURL
                     .deletingPathExtension()
                     .lastPathComponent
-                request = try FinderArchiveRequest(
+                request = try EncryptedArchiveRequest(
                     sourceURLs: request.sourceURLs,
                     destinationDirectoryURL: directory,
                     outputFileName: preservedName
                 )
                 refreshLabels()
             } catch {
-                showDirectorySelectionFailure(for: error, on: parentWindow)
+                showDirectorySelectionFailure(on: parentWindow)
             }
         }
     }
 
-    private func showDirectorySelectionFailure(for error: Error, on window: NSWindow) {
+    private func showDirectorySelectionFailure(on window: NSWindow) {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = "无法使用这个保存位置"

@@ -3,16 +3,16 @@ import Testing
 import ZipCore
 @testable import aulycZipAppSupport
 
-@Suite("Finder encrypted archive creator")
-struct FinderEncryptedArchiveCreatorTests {
-    @Test("the Finder path creates an AES-256 archive at its reserved destination")
+@Suite("Encrypted archive creator")
+struct EncryptedArchiveCreatorTests {
+    @Test("the shared creation path creates an AES-256 archive at its reserved destination")
     func createsEncryptedArchive() throws {
         try withCreatorFixture { fixture in
             let source = fixture.root.appendingPathComponent("secret.txt")
             try Data("secret".utf8).write(to: source)
-            let request = try FinderArchiveRequest(sourceURLs: [source])
+            let request = try EncryptedArchiveRequest(sourceURLs: [source])
 
-            let created = try FinderEncryptedArchiveCreator.create(
+            let created = try EncryptedArchiveCreator.create(
                 request: request,
                 password: "test-password"
             )
@@ -27,12 +27,12 @@ struct FinderEncryptedArchiveCreatorTests {
         try withCreatorFixture { fixture in
             let source = fixture.root.appendingPathComponent("secret.txt")
             try Data("secret".utf8).write(to: source)
-            let request = try FinderArchiveRequest(sourceURLs: [source])
+            let request = try EncryptedArchiveRequest(sourceURLs: [source])
             let existing = Data("existing archive must survive".utf8)
             try existing.write(to: request.destinationURL)
 
-            #expect(throws: FinderEncryptedArchiveCreationError.destinationExists) {
-                _ = try FinderEncryptedArchiveCreator.create(
+            #expect(throws: EncryptedArchiveCreationError.destinationExists) {
+                _ = try EncryptedArchiveCreator.create(
                     request: request,
                     password: "test-password"
                 )

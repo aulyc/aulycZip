@@ -57,12 +57,7 @@ final class GeneratedPasswordDialog: NSObject {
     private let copyCheckbox: NSButton
 
     init(password: String) {
-        panel = NSPanel(
-            contentRect: NSRect(origin: .zero, size: NSSize(width: 380, height: 210)),
-            styleMask: [.titled, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
-        )
+        panel = AppModalPanel.make(size: NSSize(width: 380, height: 210))
         copyCheckbox = NSButton(
             checkboxWithTitle: "确定后复制密码到剪贴板",
             target: nil,
@@ -70,17 +65,7 @@ final class GeneratedPasswordDialog: NSObject {
         )
         super.init()
 
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
-        panel.isMovableByWindowBackground = true
-        panel.isReleasedWhenClosed = false
-        panel.backgroundColor = .windowBackgroundColor
-        panel.level = .modalPanel
-        panel.standardWindowButton(.closeButton)?.isHidden = true
-        panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        panel.standardWindowButton(.zoomButton)?.isHidden = true
-
-        let header = passwordDialogHeader(
+        let header = appDialogHeader(
             title: "请保存好自动生成的密码",
             accessibilityIdentifier: "generated-password-title"
         )
@@ -174,20 +159,7 @@ final class GeneratedPasswordDialog: NSObject {
     }
 
     func runModal(relativeTo parentWindow: NSWindow?) -> Choice {
-        if let parentWindow {
-            let parentFrame = parentWindow.frame
-            let panelFrame = panel.frame
-            panel.setFrameOrigin(NSPoint(
-                x: parentFrame.midX - panelFrame.width / 2,
-                y: parentFrame.midY - panelFrame.height / 2
-            ))
-        } else {
-            panel.center()
-        }
-        NSApp.activate(ignoringOtherApps: true)
-        panel.makeKeyAndOrderFront(nil)
-        let response = NSApp.runModal(for: panel)
-        panel.orderOut(nil)
+        let response = AppModalPanel.run(panel, relativeTo: parentWindow)
         return Choice(
             confirmed: response == .alertFirstButtonReturn,
             copyToPasteboard: copyCheckbox.state == .on

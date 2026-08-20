@@ -1,13 +1,13 @@
 import Foundation
 import ZipCore
 
-public enum FinderEncryptedArchiveCreationError: Error, Equatable, Sendable {
+public enum EncryptedArchiveCreationError: Error, Equatable, Sendable {
     case destinationExists
 }
 
-public enum FinderEncryptedArchiveCreator {
+public enum EncryptedArchiveCreator {
     public static func create(
-        request: FinderArchiveRequest,
+        request: EncryptedArchiveRequest,
         password: String,
         cancellation: ZipOperationCancellation? = nil,
         fileManager: FileManager = .default
@@ -27,14 +27,14 @@ public enum FinderEncryptedArchiveCreator {
 
         try cancellation?.throwIfCancelled()
         guard !fileManager.fileExists(atPath: request.destinationURL.path) else {
-            throw FinderEncryptedArchiveCreationError.destinationExists
+            throw EncryptedArchiveCreationError.destinationExists
         }
 
         do {
             try fileManager.moveItem(at: temporaryURL, to: request.destinationURL)
         } catch {
             if fileManager.fileExists(atPath: request.destinationURL.path) {
-                throw FinderEncryptedArchiveCreationError.destinationExists
+                throw EncryptedArchiveCreationError.destinationExists
             }
             throw error
         }

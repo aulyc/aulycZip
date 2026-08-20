@@ -85,14 +85,14 @@ final class ArchiveExtractionLocationController: NSObject {
         return checkbox
     }
 
-    func validateSelection() -> FinderArchivePasswordValidation? {
+    func validateSelection() -> ArchiveActionValidation? {
         let directory = createsIndependentFolder ? parentDirectoryURL : destinationURL
         var isDirectory = ObjCBool(false)
         guard FileManager.default.fileExists(
             atPath: directory.path,
             isDirectory: &isDirectory
         ), isDirectory.boolValue else {
-            return FinderArchivePasswordValidation(
+            return ArchiveActionValidation(
                 title: "无法使用这个输出位置",
                 message: "请选择一个仍然存在且可以访问的文件夹。",
                 buttonTitle: "重新选择",

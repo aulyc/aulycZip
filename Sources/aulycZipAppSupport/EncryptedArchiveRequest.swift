@@ -1,12 +1,12 @@
 import Foundation
 
-public enum FinderArchiveRequestError: Error, Equatable, Sendable {
+public enum EncryptedArchiveRequestError: Error, Equatable, Sendable {
     case noUsableFiles
     case invalidDestinationDirectory
     case invalidOutputFileName
 }
 
-public struct FinderArchiveRequest: Equatable, Sendable {
+public struct EncryptedArchiveRequest: Equatable, Sendable {
     public let sourceURLs: [URL]
     public let destinationURL: URL
 
@@ -35,7 +35,7 @@ public struct FinderArchiveRequest: Equatable, Sendable {
             return standardized
         }
         guard let first = usableSources.first else {
-            throw FinderArchiveRequestError.noUsableFiles
+            throw EncryptedArchiveRequestError.noUsableFiles
         }
 
         self.sourceURLs = usableSources
@@ -46,7 +46,7 @@ public struct FinderArchiveRequest: Equatable, Sendable {
             guard destinationDirectoryURL.isFileURL,
                   fileManager.fileExists(atPath: standardized.path, isDirectory: &isDirectory),
                   isDirectory.boolValue else {
-                throw FinderArchiveRequestError.invalidDestinationDirectory
+                throw EncryptedArchiveRequestError.invalidDestinationDirectory
             }
             parent = standardized
         } else {
@@ -82,11 +82,11 @@ public struct FinderArchiveRequest: Equatable, Sendable {
               name != ".",
               name != "..",
               name.rangeOfCharacter(from: invalidCharacters) == nil else {
-            throw FinderArchiveRequestError.invalidOutputFileName
+            throw EncryptedArchiveRequestError.invalidOutputFileName
         }
         let fileName = name.lowercased().hasSuffix(".zip") ? name : name + ".zip"
         guard fileName.utf8.count <= 255 else {
-            throw FinderArchiveRequestError.invalidOutputFileName
+            throw EncryptedArchiveRequestError.invalidOutputFileName
         }
         return fileName
     }

@@ -17,11 +17,6 @@ private enum ListingOutcome: Sendable {
     case systemFailure(String)
 }
 
-private enum CompletionPresentation {
-    case systemAlert
-    case appHeader
-}
-
 @MainActor
 final class ArchiveWorkflowController {
     private let progress = ProgressPanelController()
@@ -46,71 +41,44 @@ final class ArchiveWorkflowController {
             operationCoordinator.end(.archive)
             return
         }
-
-        let destinationPanel = NSSavePanel()
-        destinationPanel.title = "保存加密 ZIP"
-        destinationPanel.prompt = "保存"
-        destinationPanel.allowedContentTypes = [.zip]
-        destinationPanel.canCreateDirectories = true
-        destinationPanel.directoryURL = sourcePanel.urls.first?.deletingLastPathComponent()
-        destinationPanel.nameFieldStringValue = suggestedArchiveName(for: sourcePanel.urls)
-        guard destinationPanel.runModal() == .OK, let destination = destinationPanel.url else {
-            operationCoordinator.end(.archive)
-            return
-        }
-        let destinationPolicy: ZipCreationDestinationPolicy = FileManager.default.fileExists(
-            atPath: destination.path
-        ) ? .replaceExisting : .refuseExisting
-
-        guard let password = PasswordPrompt.requestNewPassword() else {
-            operationCoordinator.end(.archive)
-            return
-        }
-        startMenuEncryptedCreation(
+        continueEncryptedCreation(
             sourceURLs: sourcePanel.urls,
-            destination: destination,
-            destinationPolicy: destinationPolicy,
-            password: password
+            invalidSourcesMessage: "没有可压缩的文件或文件夹。"
         )
     }
 
     func createEncryptedArchiveFromFinder(_ sourceURLs: [URL]) {
         guard beginUserFlow() else { return }
-        let request: FinderArchiveRequest
+        continueEncryptedCreation(
+            sourceURLs: sourceURLs,
+            invalidSourcesMessage: "Finder 没有提供可压缩的文件或文件夹。"
+        )
+    }
+
+    private func continueEncryptedCreation(
+        sourceURLs: [URL],
+        invalidSourcesMessage: String
+    ) {
+        let request: EncryptedArchiveRequest
         do {
-            request = try FinderArchiveRequest(sourceURLs: sourceURLs)
+            request = try EncryptedArchiveRequest(sourceURLs: sourceURLs)
         } catch {
             operationCoordinator.end(.archive)
-            presentErrorMessage("Finder 没有提供可压缩的文件或文件夹。")
+            presentErrorMessage(invalidSourcesMessage)
             return
         }
-        guard let choice = PasswordPrompt.requestNewPassword(for: request) else {
+        guard let choice = ArchiveSettingsPrompt.requestEncryptedArchiveChoice(
+            for: request
+        ) else {
             operationCoordinator.end(.archive)
             return
         }
-        startFinderEncryptedCreation(choice)
+        startEncryptedCreation(choice)
     }
 
-    private func startMenuEncryptedCreation(
-        sourceURLs: [URL],
-        destination: URL,
-        destinationPolicy: ZipCreationDestinationPolicy,
-        password: String
-    ) {
-        performEncryptedCreation(destination: destination) { cancellation in
-            try ZipArchive.create(
-                at: destination,
-                contentsOf: sourceURLs,
-                encryption: .winZipAES256(password: password),
-                destinationPolicy: destinationPolicy,
-                cancellation: cancellation
-            )
-        }
-    }
-
-    private func startFinderEncryptedCreation(_ choice: FinderArchiveCreationChoice) {
+    private func startEncryptedCreation(_ choice: EncryptedArchiveCreationChoice) {
         performEncryptedCreation(destination: choice.request.destinationURL) { cancellation in
-            _ = try FinderEncryptedArchiveCreator.create(
+            _ = try EncryptedArchiveCreator.create(
                 request: choice.request,
                 password: choice.password,
                 cancellation: cancellation
@@ -135,9 +103,9 @@ final class ArchiveWorkflowController {
                     return WorkflowOutcome.success
                 } catch ZipError.cancelled {
                     return WorkflowOutcome.cancelled
-                } catch FinderEncryptedArchiveCreationError.destinationExists {
+                } catch EncryptedArchiveCreationError.destinationExists {
                     return WorkflowOutcome.systemFailure(
-                        "同名 ZIP 在操作过程中出现，原文件没有被覆盖。请重新执行右键加密压缩。"
+                        "同名 ZIP 在操作过程中出现，原文件没有被覆盖。请重新创建加密 ZIP。"
                     )
                 } catch let error as ZipError {
                     return WorkflowOutcome.zipFailure(error)
@@ -151,8 +119,7 @@ final class ArchiveWorkflowController {
                 outcome,
                 successTitle: "加密 ZIP 已创建",
                 successMessage: destination.path,
-                reveal: destination,
-                presentation: .appHeader
+                reveal: destination
             )
         }
     }
@@ -217,7 +184,7 @@ final class ArchiveWorkflowController {
                 return
             }
 
-            guard let choice = PasswordPrompt.requestExtractionChoice(
+            guard let choice = ArchiveSettingsPrompt.requestExtractionChoice(
                 for: archive,
                 requiresPassword: entries.contains(where: \.isEncrypted)
             ) else {
@@ -255,8 +222,7 @@ final class ArchiveWorkflowController {
                 outcome,
                 successTitle: "ZIP 已解压",
                 successMessage: destination.path,
-                reveal: destination,
-                presentation: .appHeader
+                reveal: destination
             )
         }
     }
@@ -278,42 +244,19 @@ final class ArchiveWorkflowController {
         return true
     }
 
-    private func suggestedArchiveName(for sources: [URL]) -> String {
-        if sources.count == 1, let first = sources.first {
-            let baseName = first.deletingPathExtension().lastPathComponent
-            if first.pathExtension.caseInsensitiveCompare("zip") == .orderedSame {
-                return baseName + " 加密.zip"
-            }
-            return baseName + ".zip"
-        }
-        return "归档.zip"
-    }
-
     private func handleCompletion(
         _ outcome: WorkflowOutcome,
         successTitle: String,
         successMessage: String,
-        reveal: URL,
-        presentation: CompletionPresentation = .systemAlert
+        reveal: URL
     ) {
         switch outcome {
         case .success:
-            let response: NSApplication.ModalResponse
-            switch presentation {
-            case .systemAlert:
-                let alert = NSAlert()
-                alert.messageText = successTitle
-                alert.informativeText = successMessage
-                alert.addButton(withTitle: "在 Finder 中显示")
-                alert.addButton(withTitle: "完成")
-                response = alert.runModal()
-            case .appHeader:
-                let dialog = WorkflowCompletionDialog(
-                    title: successTitle,
-                    message: successMessage
-                )
-                response = dialog.runModal()
-            }
+            let dialog = WorkflowCompletionDialog(
+                title: successTitle,
+                message: successMessage
+            )
+            let response = dialog.runModal()
             if response == .alertFirstButtonReturn {
                 NSWorkspace.shared.activateFileViewerSelecting([reveal])
             }

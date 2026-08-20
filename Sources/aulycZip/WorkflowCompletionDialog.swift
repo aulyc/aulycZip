@@ -23,28 +23,12 @@ final class WorkflowCompletionDialog: NSObject {
             )
         )
         let panelHeight = 162 + messageHeight
-        panel = NSPanel(
-            contentRect: NSRect(
-                origin: .zero,
-                size: NSSize(width: Self.panelWidth, height: panelHeight)
-            ),
-            styleMask: [.titled, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
+        panel = AppModalPanel.make(
+            size: NSSize(width: Self.panelWidth, height: panelHeight)
         )
         super.init()
 
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
-        panel.isMovableByWindowBackground = true
-        panel.isReleasedWhenClosed = false
-        panel.backgroundColor = .windowBackgroundColor
-        panel.level = .modalPanel
-        panel.standardWindowButton(.closeButton)?.isHidden = true
-        panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        panel.standardWindowButton(.zoomButton)?.isHidden = true
-
-        let header = passwordDialogHeader(
+        let header = appDialogHeader(
             title: title,
             accessibilityIdentifier: "workflow-completion-title"
         )
@@ -106,12 +90,7 @@ final class WorkflowCompletionDialog: NSObject {
     }
 
     func runModal() -> NSApplication.ModalResponse {
-        panel.center()
-        NSApp.activate(ignoringOtherApps: true)
-        panel.makeKeyAndOrderFront(nil)
-        let response = NSApp.runModal(for: panel)
-        panel.orderOut(nil)
-        return response
+        AppModalPanel.run(panel)
     }
 
     @objc private func reveal(_ sender: NSButton) {
