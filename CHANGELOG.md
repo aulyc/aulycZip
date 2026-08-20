@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Ignore macOS helper metadata such as `__MACOSX/`, `.DS_Store`, and AppleDouble `._*` during extraction instead of writing it into the result
+- Reuse the compact encrypted-archive completion header after extraction so the application icon and “ZIP extracted” title share one consistently sized row, and remove the extra gap between the output directory and file name
+
 ## [1.2.0] - 2026-08-20
 
 ### Added

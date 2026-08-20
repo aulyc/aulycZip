@@ -255,7 +255,8 @@ final class ArchiveWorkflowController {
                 outcome,
                 successTitle: "ZIP 已解压",
                 successMessage: destination.path,
-                reveal: destination
+                reveal: destination,
+                presentation: .appHeader
             )
         }
     }

@@ -22,6 +22,47 @@ struct ZipArchiveIntegrationTests {
         }
     }
 
+    @Test("macOS metadata entries are hidden and not extracted")
+    func ignoresMacOSMetadataEntries() throws {
+        try withFixture { fixture in
+            let document = fixture.source.appendingPathComponent("文档.pdf")
+            let metadataDirectory = fixture.source.appendingPathComponent(
+                "__MACOSX",
+                isDirectory: true
+            )
+            let appleDouble = fixture.source.appendingPathComponent("._文档.pdf")
+            let finderMetadata = fixture.source.appendingPathComponent(".DS_Store")
+            try FileManager.default.createDirectory(
+                at: metadataDirectory,
+                withIntermediateDirectories: false
+            )
+            try Data("document".utf8).write(to: document)
+            try Data("resource fork".utf8).write(
+                to: metadataDirectory.appendingPathComponent("._文档.pdf")
+            )
+            try Data("apple double".utf8).write(to: appleDouble)
+            try Data("finder metadata".utf8).write(to: finderMetadata)
+
+            try ZipArchive.create(
+                at: fixture.archive,
+                contentsOf: [metadataDirectory, appleDouble, finderMetadata, document],
+                encryption: .none
+            )
+
+            #expect(try ZipArchive.list(fixture.archive).map(\.path) == ["文档.pdf"])
+
+            try ZipArchive.extract(fixture.archive, to: fixture.output)
+            #expect(
+                try Data(contentsOf: fixture.output.appendingPathComponent("文档.pdf"))
+                    == Data("document".utf8)
+            )
+            #expect(
+                try FileManager.default.contentsOfDirectory(atPath: fixture.output.path)
+                    == ["文档.pdf"]
+            )
+        }
+    }
+
     @Test("an existing directory can receive extracted files without an extra folder")
     func directExtractionIntoExistingDirectory() throws {
         try withFixture { fixture in

@@ -28,6 +28,7 @@ public enum ZipArchive {
     ) throws -> [ZipEntry] {
         try ZipArchiveReader(url: archive, cancellation: cancellation)
             .records
+            .filter { !isMacOSMetadataPath($0.path) }
             .map(\.publicEntry)
     }
 
@@ -69,12 +70,16 @@ public enum ZipArchive {
         }
 
         let reader = try ZipArchiveReader(url: archive, cancellation: cancellation)
+        let records = reader.records.filter { !isMacOSMetadataPath($0.path) }
+        guard !records.isEmpty else {
+            throw ZipError.invalidArchive("ZIP contains no extractable files")
+        }
         guard limits.maximumEntryCount >= 0,
               reader.records.count <= limits.maximumEntryCount else {
             throw ZipError.tooManyEntries
         }
         var declaredTotal: UInt64 = 0
-        for record in reader.records {
+        for record in records {
             guard record.uncompressedSize <= limits.maximumEntryUncompressedSize,
                   record.uncompressedSize <= limits.maximumTotalUncompressedSize - min(
                     declaredTotal,
@@ -106,6 +111,7 @@ public enum ZipArchive {
 
         // Authenticate every encrypted entry before creating a staging directory or plaintext file.
         try reader.validateEncryptedEntries(
+            records,
             password: password,
             cancellation: cancellation
         )
@@ -122,7 +128,7 @@ public enum ZipArchive {
         }
 
         var actualTotal: UInt64 = 0
-        for record in reader.records {
+        for record in records {
             try cancellation?.check()
             let output = try SafeExtractionPath.resolve(record.path, below: staging)
             if record.isDirectory {
@@ -177,6 +183,18 @@ public enum ZipArchive {
             committed = true
             try? fileManager.removeItem(at: staging)
         }
+    }
+
+    private static func isMacOSMetadataPath(_ path: String) -> Bool {
+        let components = path
+            .replacingOccurrences(of: "\\", with: "/")
+            .split(separator: "/", omittingEmptySubsequences: true)
+        guard let first = components.first, let last = components.last else {
+            return false
+        }
+        if first == "__MACOSX" { return true }
+        if last == ".DS_Store" { return true }
+        return last.hasPrefix("._")
     }
 
     private static func moveStagingContents(

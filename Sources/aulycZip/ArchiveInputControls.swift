@@ -113,7 +113,7 @@ final class ArchiveFileNameControl: NSView, NSTextFieldDelegate {
         stack.orientation = .horizontal
         stack.alignment = .centerY
         stack.spacing = 0
-        stack.setCustomSpacing(4, after: directoryLabel)
+        stack.setCustomSpacing(0, after: directoryLabel)
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(fieldBackground)
         addSubview(stack)

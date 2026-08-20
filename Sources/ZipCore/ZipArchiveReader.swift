@@ -45,6 +45,7 @@ struct ZipArchiveReader {
     }
 
     func validateEncryptedEntries(
+        _ records: [ZipRecord],
         password: String?,
         cancellation: ZipOperationCancellation? = nil
     ) throws {
