@@ -1,0 +1,36 @@
+{
+  "$schema": "urn:aulyc:release-provenance:1",
+  "appExecutableSha256": "0573bc066a29892ec9cf2426137b99af98206a19e8753da183dd4ce96b8a8b90",
+  "architecture": "arm64",
+  "artifacts": [
+    {
+      "file": "aulycZip-1.2.2-build.7-formal-macos-arm64.dmg",
+      "sha256": "048c3bfa344ab634258280e6b4b827e9f0d11902bad1a8034a1ca9523cea8257"
+    }
+  ],
+  "buildNumber": 7,
+  "builtAt": "2026-08-20T02:18:02Z",
+  "bundleIdentifier": "com.aulyc.aulyczip",
+  "bundleName": "aulycZip",
+  "commit": "c564dd9c88536f4960f2b044902640f16d02d624",
+  "dirty": false,
+  "entitlements": {},
+  "executableName": "aulycZip",
+  "hardenedRuntime": true,
+  "infoPlistSha256": "6a8769ec585beab722564e0f939e66a02dba3b8fdbc2ed79999e3fe4943a68d0",
+  "minimumSystemVersion": "14.0",
+  "notarizationSubmissionId": "2d7a5ac7-e6d9-4595-876b-d8a025022a6e",
+  "notarized": true,
+  "project": "aulycZip",
+  "releaseChannel": "formal",
+  "releaseProfile": "macos-arm64-app",
+  "signatureType": "developer-id",
+  "sourceBranch": "main",
+  "sourceRemoteCommit": "c564dd9c88536f4960f2b044902640f16d02d624",
+  "sourceRemoteTagCommit": "c564dd9c88536f4960f2b044902640f16d02d624",
+  "sourceRemoteVerifiedAt": "2026-08-20T02:19:04Z",
+  "sourceRepository": "aulyc/aulycZip",
+  "tag": "1.2.2",
+  "teamIdentifier": "M9M7M2ARFD",
+  "version": "1.2.2"
+}
