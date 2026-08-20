@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-08-20
+
 ### Changed
 
 - Unify the encrypted ZIP settings dialog, save-location selection, and creation rules across the menu-bar and Finder context-menu actions
