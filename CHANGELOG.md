@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-08-22
+
 ### Added
 
 - Add a Finder context-menu service for extracting a single ZIP through the same destination, password, validation, and atomic extraction flow as the menu-bar action
