@@ -3,8 +3,8 @@ import Testing
 
 @Suite("macOS bundle metadata")
 struct BundleMetadataTests {
-    @Test("Finder encrypted ZIP service is declared without restricted-service confirmation")
-    func finderServiceDeclaration() throws {
+    @Test("Finder create and extract services declare their supported file types")
+    func finderServiceDeclarations() throws {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -14,16 +14,27 @@ struct BundleMetadataTests {
             PropertyListSerialization.propertyList(from: plistData, format: nil) as? [String: Any]
         )
         let services = try #require(plist["NSServices"] as? [[String: Any]])
-        let service = try #require(services.first)
-        let menu = try #require(service["NSMenuItem"] as? [String: String])
-        let context = try #require(service["NSRequiredContext"] as? [String: Any])
+        let createService = try #require(
+            services.first { $0["NSMessage"] as? String == "createEncryptedZip" }
+        )
+        let createMenu = try #require(createService["NSMenuItem"] as? [String: String])
+        let createContext = try #require(createService["NSRequiredContext"] as? [String: Any])
+        let extractService = try #require(
+            services.first { $0["NSMessage"] as? String == "extractZip" }
+        )
+        let extractMenu = try #require(extractService["NSMenuItem"] as? [String: String])
+        let extractContext = try #require(extractService["NSRequiredContext"] as? [String: Any])
 
-        #expect(services.count == 1)
-        #expect(menu["default"] == "使用 aulycZip 加密压缩")
-        #expect(service["NSMessage"] as? String == "createEncryptedZip")
-        #expect(service["NSPortName"] as? String == "aulycZip")
-        #expect(service["NSSendFileTypes"] as? [String] == ["public.item"])
-        #expect(service["NSRestricted"] == nil)
-        #expect(context["NSApplicationIdentifier"] as? String == "com.apple.finder")
+        #expect(services.count == 2)
+        #expect(createMenu["default"] == "使用 aulycZip 加密压缩")
+        #expect(createService["NSPortName"] as? String == "aulycZip")
+        #expect(createService["NSSendFileTypes"] as? [String] == ["public.item"])
+        #expect(createService["NSRestricted"] == nil)
+        #expect(createContext["NSApplicationIdentifier"] as? String == "com.apple.finder")
+        #expect(extractMenu["default"] == "使用 aulycZip 解压")
+        #expect(extractService["NSPortName"] as? String == "aulycZip")
+        #expect(extractService["NSSendFileTypes"] as? [String] == ["public.zip-archive"])
+        #expect(extractService["NSRestricted"] == nil)
+        #expect(extractContext["NSApplicationIdentifier"] as? String == "com.apple.finder")
     }
 }

@@ -21,11 +21,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onCheckForUpdates: { [weak updater] in updater?.checkManually() }
         )
 
-        let serviceProvider = FinderServiceProvider { [weak workflow] urls in
-            Task { @MainActor [weak workflow] in
-                workflow?.createEncryptedArchiveFromFinder(urls)
+        let serviceProvider = FinderServiceProvider(
+            onCreateSelection: { [weak workflow] urls in
+                Task { @MainActor [weak workflow] in
+                    workflow?.createEncryptedArchiveFromFinder(urls)
+                }
+            },
+            onExtractSelection: { [weak workflow] archive in
+                Task { @MainActor [weak workflow] in
+                    workflow?.extractArchiveFromFinder(archive)
+                }
             }
-        }
+        )
         finderServiceProvider = serviceProvider
         NSApp.servicesProvider = serviceProvider
         NSUpdateDynamicServices()

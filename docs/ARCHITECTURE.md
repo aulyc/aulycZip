@@ -6,7 +6,7 @@
 
 - `StatusBarController` 维护 `NSStatusItem` 与原生菜单
 - `ArchiveWorkflowController` 维护选择文件、保存位置、密码、进度和结果反馈
-- `FinderServiceProvider` 接收 Finder Services 传入的文件 URL
+- `FinderServiceProvider` 接收 Finder Services 传入的文件 URL，并分发加密创建或单 ZIP 解压请求
 - `EncryptedArchiveRequest` 统一校验菜单栏或 Finder 入口提供的压缩目标，并生成不覆盖现有文件的输出路径
 - `ArchiveSettingsPrompt` 统一编排加密创建和解压设置；`ArchiveActionDialog`、随机密码对话框和输入控件按职责拆分，密码只在内存中接收，不保存、不记录
 - `AppModalPanel` 统一设置和运行加密创建、随机密码及操作完成弹窗的窗口外壳

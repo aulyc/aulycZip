@@ -139,6 +139,15 @@ final class ArchiveWorkflowController {
             return
         }
 
+        continueExtraction(archive)
+    }
+
+    func extractArchiveFromFinder(_ archive: URL) {
+        guard beginUserFlow() else { return }
+        continueExtraction(archive)
+    }
+
+    private func continueExtraction(_ archive: URL) {
         let cancellation = ZipOperationCancellation()
         progress.showOperation(
             title: "正在读取 ZIP",

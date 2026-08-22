@@ -75,7 +75,7 @@ final class AboutWindowController: NSObject {
 
         let usage = section(title: "使用说明", views: [
             bodyLabel("1. 创建：从菜单栏选择“创建加密 ZIP…”，或在 Finder 中右键选择“使用 aulycZip 加密压缩”。"),
-            bodyLabel("2. 解压：从菜单栏选择“解压 ZIP…”，再按提示选择压缩包和保存位置。"),
+            bodyLabel("2. 解压：从菜单栏选择“解压 ZIP…”，或在 Finder 中右键单个 ZIP 选择“使用 aulycZip 解压”。"),
             bodyLabel("3. 密码仅用于当前操作，不会保存；密码遗失后无法恢复。"),
             bodyLabel("4. ZIP 只加密文件内容，不隐藏文件名和目录名。如需隐藏名称，可先用 Finder 压缩，再加密生成的 ZIP。"),
         ])
